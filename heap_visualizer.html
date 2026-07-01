@@ -1,0 +1,1910 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>二元樹 / Heap — 圖像化步驟模擬</title>
+<style>
+  :root {
+    --bg: #0f1320; --panel: #1a2032; --panel2: #232b40; --line: #39435f;
+    --text: #e6ebf5; --muted: #8b97b3; --accent: #4f9cff;
+    --node: #2d6cdf; --node-cmp: #ffb74f; --node-visit: #2bb7c4;
+    --node-swap: #ff5d6c; --node-done: #34c98a; --node-new: #9b6cff;
+    --rb-red: #d23b49; --rb-black: #2a3346;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: "Segoe UI","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+    background: var(--bg); color: var(--text); display: flex; flex-direction: column; height: 100vh; }
+  header { padding: 12px 20px; background: var(--panel); border-bottom: 1px solid var(--line);
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  header h1 { font-size: 18px; margin: 0; font-weight: 600; }
+  .tag { font-size: 12px; color: var(--muted); }
+  .main { flex: 1; display: flex; min-height: 0; }
+  .sidebar { width: 312px; flex: none; background: var(--panel); border-right: 1px solid var(--line);
+    padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; }
+  .rightbar { width: 312px; flex: none; background: var(--panel); border-left: 1px solid var(--line);
+    padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; }
+  .card { background: var(--panel2); border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
+  .card h3 { margin: 0 0 10px; font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  input[type="text"], input[type="number"], select { flex: 1; min-width: 70px; padding: 9px 11px;
+    border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--text); font-size: 14px; }
+  input:focus, select:focus { outline: none; border-color: var(--accent); }
+  button { padding: 9px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel2);
+    color: var(--text); font-size: 13px; cursor: pointer; transition: .15s; }
+  button:hover { background: var(--line); }
+  button.primary { background: var(--node); border-color: var(--node); color: #fff; }
+  button.primary:hover { filter: brightness(1.12); }
+  button.danger { background: #b23241; border-color: #b23241; color: #fff; }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  .seg { display: flex; flex-wrap: wrap; gap: 6px; }
+  .seg button { flex: 1 1 46%; }
+  .seg button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .seg.small button { flex: 1 1 22%; padding: 8px 4px; font-size: 12px; }
+  .controls-play { display: flex; gap: 8px; justify-content: center; align-items: center; }
+  .controls-play button { width: 44px; height: 40px; font-size: 16px; }
+  canvas { display: block; cursor: pointer; }
+  .canvas-wrap { flex: 1; min-width: 0; position: relative; overflow: hidden; }
+  .status { position: absolute; left: 0; right: 0; bottom: 0; padding: 12px 18px;
+    background: rgba(15,19,32,.92); border-top: 1px solid var(--line); min-height: 56px;
+    display: flex; align-items: center; gap: 12px; }
+  .status .step-no { background: var(--accent); color: #fff; border-radius: 6px; padding: 3px 9px;
+    font-size: 12px; font-weight: 600; white-space: nowrap; }
+  .status .msg { font-size: 14px; line-height: 1.5; }
+  .arr { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+  .arr .cell { min-width: 34px; text-align: center; padding: 6px 4px; border-radius: 6px;
+    border: 1px solid var(--line); background: var(--bg); font-size: 13px; position: relative; }
+  .arr .cell .idx { position: absolute; top: -16px; left: 0; right: 0; font-size: 10px; color: var(--muted); }
+  .arr .cell.hl { background: var(--node-cmp); color: #1a1a1a; border-color: var(--node-cmp); }
+  .arr .cell.sw { background: var(--node-swap); color: #fff; border-color: var(--node-swap); }
+  .arr .cell.empty { color: var(--muted); }
+  .legend { display: flex; flex-wrap: wrap; gap: 10px; font-size: 12px; color: var(--muted); }
+  .legend span { display: inline-flex; align-items: center; gap: 5px; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+  .hint { font-size: 12px; color: var(--muted); line-height: 1.6; }
+  .speed { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
+  input[type="range"] { flex: 1; }
+  .empty-note { color: var(--muted); font-size: 13px; }
+  .note { font-size: 12px; color: var(--accent); }
+  .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .metrics > div { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 4px; text-align: center; }
+  .metrics span { display: block; font-size: 18px; font-weight: 700; color: var(--accent); }
+  .metrics label { font-size: 11px; color: var(--muted); }
+  .pseudo { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 12px; line-height: 1.55; }
+  .pseudo .cline { padding: 1px 6px; border-radius: 4px; white-space: pre-wrap; color: var(--muted); border-left: 3px solid transparent; }
+  .pseudo .cline.active { background: rgba(79,156,255,.18); color: var(--text); border-left-color: var(--accent); }
+  .qtoggle { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
+  .qscore { font-size: 12px; color: var(--muted); margin-top: 8px; }
+  .qbox { margin-top: 10px; }
+  .qq { font-size: 13px; line-height: 1.5; margin-bottom: 8px; }
+  .qfb { font-size: 13px; font-weight: 600; margin-top: 8px; min-height: 18px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🌳 二元樹 / Heap — 圖像化步驟模擬</h1>
+  <span class="tag">Heap・Min-Max Heap・DEAP・SMMH・BST・AVL・紅黑樹 ・ 點節點看路徑 ・ 前中後層序走訪</span>
+</header>
+<div class="main">
+  <div class="sidebar">
+    <div class="card">
+      <h3>資料結構</h3>
+      <div class="seg" id="structSel">
+        <button data-mode="max" class="active">最大堆 Max-Heap</button>
+        <button data-mode="min">最小堆 Min-Heap</button>
+        <button data-mode="minmax">Min-Max Heap</button>
+        <button data-mode="deap">DEAP 雙端堆</button>
+        <button data-mode="smmh">SMMH</button>
+        <button data-mode="bst">二元搜尋樹 BST</button>
+        <button data-mode="avl">AVL 平衡樹</button>
+        <button data-mode="rbt">紅黑樹 RB-Tree</button>
+        <button data-mode="btree">B-Tree</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>隨機資料範例</h3>
+      <div class="row"><select id="examplesSel"></select></div>
+      <div style="height:8px"></div>
+      <div class="row">
+        <button class="primary" onclick="applyExample()">套用範例</button>
+        <button onclick="doRandom()">隨機產生</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>輸入數值</h3>
+      <div class="row">
+        <input type="number" id="singleVal" placeholder="輸入一個數字" onkeydown="if(event.key==='Enter')doInsert()">
+        <button class="primary" onclick="doInsert()">插入 ＋</button>
+      </div>
+      <div style="height:10px"></div>
+      <div class="row"><input type="text" id="bulkVal" placeholder="批次,以逗號或空白分隔  例: 5,3,8,1,9,2"></div>
+      <div style="height:8px"></div>
+      <div class="row">
+        <button id="btnBuild" onclick="doBuild()">建堆 Build Heap(逐步)</button>
+        <button onclick="doBulkInsert()">逐一插入</button>
+      </div>
+      <div style="height:10px"></div>
+      <div class="note" style="color:var(--muted)">測資情境(填入批次欄)</div>
+      <div class="seg small" style="margin-top:6px">
+        <button onclick="fillScenario('random')">隨機</button>
+        <button onclick="fillScenario('sorted')">已排序</button>
+        <button onclick="fillScenario('reverse')">逆序</button>
+        <button onclick="fillScenario('nearly')">近乎有序</button>
+        <button onclick="fillScenario('dup')">大量重複</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>操作</h3>
+      <div id="heapOps" class="row">
+        <button class="danger" onclick="doExtract()">取出頂端 Extract</button>
+        <button onclick="doHeapSort()">堆積排序 Heap Sort</button>
+      </div>
+      <div id="mmOps" class="row" style="display:none;">
+        <button class="danger" onclick="doMMDeleteMin()">刪除最小 Del-Min</button>
+        <button class="danger" onclick="doMMDeleteMax()">刪除最大 Del-Max</button>
+      </div>
+      <div id="advOps" class="row" style="display:none;">
+        <button class="danger" onclick="doAdvDelMin()">刪除最小</button>
+        <button class="danger" onclick="doAdvDelMax()">刪除最大</button>
+      </div>
+      <div id="heapMod" class="row" style="display:none; flex-direction:column; align-items:stretch;">
+        <div style="height:8px"></div>
+        <div class="row"><input type="number" id="hpA" placeholder="目標值"><input type="number" id="hpB" placeholder="新值(改鍵用)"></div>
+        <div style="height:8px"></div>
+        <div class="row">
+          <button onclick="doHeapModify()">改鍵 Modify</button>
+          <button class="danger" onclick="doHeapDeleteAt()">刪此值 Delete</button>
+        </div>
+      </div>
+      <div id="findRow" class="row" style="display:none; flex-direction:column; align-items:stretch;">
+        <div style="height:8px"></div>
+        <div class="row"><input type="number" id="arrFindV" placeholder="查找的數字"><button onclick="doArrFind()">查找 Find</button></div>
+      </div>
+      <div id="treeOps" class="row" style="display:none; flex-direction:column; align-items:stretch;">
+        <div class="row"><input type="number" id="treeVal" placeholder="搜尋 / 刪除的數字"></div>
+        <div style="height:8px"></div>
+        <div class="row">
+          <button onclick="doSearch()">搜尋 Search</button>
+          <button id="btnDelete" class="danger" onclick="doDelete()">刪除 Delete</button>
+        </div>
+      </div>
+      <div id="btOps" class="row" style="display:none; flex-direction:column; align-items:stretch;">
+        <div class="row">
+          <span class="note" style="color:var(--muted)">階數 t</span>
+          <select id="btOrder">
+            <option value="2">t=2(2-3-4 樹,每節點 ≤3 鍵)</option>
+            <option value="3" selected>t=3(每節點 ≤5 鍵)</option>
+            <option value="4">t=4(每節點 ≤7 鍵)</option>
+            <option value="5">t=5(每節點 ≤9 鍵)</option>
+          </select>
+        </div>
+      </div>
+      <div id="arrInfo" class="note" style="display:none;"></div>
+      <div style="height:8px"></div>
+      <div class="row"><button onclick="doInspect()">檢視不變性</button><button onclick="resetAll()">清空 Reset</button></div>
+    </div>
+
+    <div class="card">
+      <h3>走訪追蹤 Traversal</h3>
+      <div class="seg small">
+        <button onclick="doTraverse('pre')">前序 Pre</button>
+        <button onclick="doTraverse('in')">中序 In</button>
+        <button onclick="doTraverse('post')">後序 Post</button>
+        <button onclick="doTraverse('level')">層序 Lv</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>排序演算法 Sorting</h3>
+      <div class="seg small">
+        <button onclick="doSort('bubble')">氣泡</button>
+        <button onclick="doSort('selection')">選擇</button>
+        <button onclick="doSort('insertion')">插入</button>
+        <button onclick="doSort('shell')">希爾</button>
+        <button onclick="doSort('merge')">合併</button>
+        <button onclick="doSort('quick')">快速</button>
+        <button onclick="doSort('heap')">堆積</button>
+        <button onclick="doSort('counting')">計數</button>
+        <button onclick="doSort('radix')">基數</button>
+      </div>
+      <div class="note" style="margin-top:8px;color:var(--muted)">用「輸入數值」批次欄的數字排序(留空則隨機產生)。長條高度=值。</div>
+    </div>
+
+    <div class="card">
+      <h3>測驗模式 Quiz</h3>
+      <label class="qtoggle"><input type="checkbox" id="quizChk" onchange="toggleQuiz()"> 開啟「預測下一步」</label>
+      <div class="qscore" id="quizScore">答對 0 ・ 答錯 0</div>
+      <div class="qbox" id="quizBox" style="display:none;">
+        <div class="qq" id="quizQ"></div>
+        <div class="row" id="quizBtns"></div>
+        <div class="qfb" id="quizFb"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="canvas-wrap">
+    <canvas id="cv"></canvas>
+    <div class="status">
+      <span class="step-no" id="stepNo">就緒</span>
+      <span class="msg" id="msg">選擇資料結構,套用範例或輸入數值。點任一節點可高亮從根到它的路徑。</span>
+    </div>
+  </div>
+
+  <div class="rightbar">
+    <div class="card">
+      <h3>播放控制</h3>
+      <div class="controls-play">
+        <button onclick="stepFirst()" title="回到開始">⏮</button>
+        <button onclick="stepPrev()" title="上一步">◀</button>
+        <button id="playBtn" class="primary" onclick="togglePlay()" title="播放/暫停">▶</button>
+        <button onclick="stepNext()" title="下一步">▶▶</button>
+        <button onclick="stepLast()" title="跳到結尾">⏭</button>
+      </div>
+      <div style="height:12px"></div>
+      <div class="speed"><span>慢</span><input type="range" id="speed" min="120" max="1400" value="650" oninput="updateSpeedMs()"><span>快</span></div>
+      <div class="speed" style="justify-content:center; margin-top:6px"><span id="speedMs">每步 ≈ 870 ms</span></div>
+    </div>
+
+    <div class="card">
+      <h3 id="modeTitle">目前模式</h3>
+      <div class="hint" id="hint" style="margin:0"></div>
+    </div>
+
+    <div class="card">
+      <h3>本次操作統計</h3>
+      <div class="metrics">
+        <div><span id="mCmp">0</span><label>比較</label></div>
+        <div><span id="mSwap">0</span><label>交換/旋轉</label></div>
+        <div><span id="mStep">—</span><label>步驟</label></div>
+        <div><span id="mNodes">0</span><label>節點數</label></div>
+        <div><span id="mH">0</span><label>樹高</label></div>
+        <div><span id="mBig" style="font-size:13px">—</span><label>理論複雜度</label></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>虛擬碼 Pseudocode</h3>
+      <div class="pseudo" id="pseudo"><span class="empty-note">選擇操作後顯示對應虛擬碼,並隨步驟高亮當前行</span></div>
+    </div>
+
+    <div class="card">
+      <h3 id="arrTitle">陣列表示 (Array)</h3>
+      <div class="arr" id="arrView"><span class="empty-note">空</span></div>
+    </div>
+
+    <div class="card">
+      <h3>圖例</h3>
+      <div class="legend" id="legend"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================ 狀態
+let mode = 'max', heapType = 'max';
+let heap = [];          // 陣列型結構資料(deap/smmh 為 1-indexed,index1 為空根)
+let treeRoot = null;    // bst/avl/rbt 樹根
+let nodeSeq = 0;
+let bt = null;          // B-Tree 根
+let btT = 3;            // B-Tree 最小分支度 t(每節點 t-1 ~ 2t-1 個鍵)
+let frames = [], frameIdx = 0, playing = false, playTimer = null;
+let pathTargetKey = null;          // 點擊高亮的目標節點 key
+let renderPositions = {}, renderParentMap = {};  // 供點擊命中與路徑
+
+const canvas = document.getElementById('cv'), ctx = canvas.getContext('2d');
+const $ = id => document.getElementById(id);
+const isArrayMode = m => ['max','min','minmax','deap','smmh'].includes(m);
+const isHeap = () => mode === 'max' || mode === 'min';
+const idxBaseFor = m => (m === 'deap' || m === 'smmh') ? 1 : 0;
+const emptyArrFor = m => (m === 'deap' || m === 'smmh') ? [null, null] : [];
+
+// 索引工具
+const lvl0 = i => Math.floor(Math.log2(i + 1));      // 0-indexed 層
+const isMin = i => lvl0(i) % 2 === 0;                // Min-Max Heap：偶數層為 min
+const par0 = i => (i - 1) >> 1, gpar0 = i => par0(par0(i));
+const Ld = i => Math.floor(Math.log2(i));            // 1-indexed 層
+const halfd = i => 1 << (Ld(i) - 1);
+const inMinD = i => { const L = Ld(i); return (i - (1 << L)) < (1 << (L - 1)); };
+
+function violates(parent, child) { return heapType === 'max' ? parent < child : parent > child; }
+
+// ============================================================ 陣列影格
+function makeFrame(arr, opt = {}) {
+  return { kind: 'heap', arr: arr.slice(), idxBase: opt.idxBase || 0, minmax: !!opt.minmax,
+    highlight: opt.highlight || [], swap: opt.swap || null, doneIdx: opt.doneIdx || [],
+    newIdx: opt.newIdx === undefined ? null : opt.newIdx, msg: opt.msg || '' };
+}
+
+// ---- Max/Min Heap ----
+function genInsert(baseArr, value) {
+  const f = [], arr = baseArr.slice(); arr.push(value); let i = arr.length - 1;
+  f.push(makeFrame(arr, { newIdx: i, highlight: [i], msg: `插入 ${value}:放到末端索引 ${i},開始「上浮 (sift-up)」。` }));
+  while (i > 0) {
+    const p = (i - 1) >> 1;
+    f.push(makeFrame(arr, { highlight: [i, p], newIdx: i, msg: `比較 ${arr[i]}(索引${i})與父 ${arr[p]}(索引${p})。` }));
+    if (violates(arr[p], arr[i])) {
+      f.push(makeFrame(arr, { swap: [i, p], newIdx: i, msg: `${heapType === 'max' ? '子較大' : '子較小'} → 交換。` }));
+      [arr[i], arr[p]] = [arr[p], arr[i]];
+      f.push(makeFrame(arr, { highlight: [p], newIdx: p, msg: `${arr[p]} 上移到索引 ${p},繼續往上。` })); i = p;
+    } else { f.push(makeFrame(arr, { doneIdx: [i], msg: `滿足堆積性質,定位於索引 ${i} ✓` })); return { frames: f, result: arr }; }
+  }
+  f.push(makeFrame(arr, { doneIdx: [0], msg: `到達根節點,${arr[0]} 成為新頂端 ✓` }));
+  return { frames: f, result: arr };
+}
+function siftDownFrames(arr, i, n, f) {
+  while (true) {
+    let t = i; const l = 2 * i + 1, r = 2 * i + 2, cmp = [i];
+    if (l < n) cmp.push(l); if (r < n) cmp.push(r);
+    f.push(makeFrame(arr, { highlight: cmp, msg: `檢查索引 ${i}(${arr[i]})與子節點。` }));
+    if (l < n && violates(arr[t], arr[l])) t = l;
+    if (r < n && violates(arr[t], arr[r])) t = r;
+    if (t === i) { f.push(makeFrame(arr, { doneIdx: [i], msg: `定位於索引 ${i} ✓` })); break; }
+    f.push(makeFrame(arr, { swap: [i, t], msg: `與${heapType === 'max' ? '最大' : '最小'}子 ${arr[t]}(索引${t})交換。` }));
+    [arr[i], arr[t]] = [arr[t], arr[i]];
+    f.push(makeFrame(arr, { highlight: [t], msg: `繼續從索引 ${t} 往下。` })); i = t;
+  }
+}
+function genExtract(baseArr) {
+  const f = [], arr = baseArr.slice();
+  if (!arr.length) return { frames: [makeFrame([], { msg: '堆積為空。' })], result: [] };
+  const top = arr[0];
+  f.push(makeFrame(arr, { highlight: [0], msg: `取出頂端 ${top}。` }));
+  if (arr.length === 1) { arr.pop(); f.push(makeFrame(arr, { msg: '移除完成 ✓' })); return { frames: f, result: arr }; }
+  const last = arr.length - 1;
+  f.push(makeFrame(arr, { swap: [0, last], msg: `把末端 ${arr[last]} 移到根,移除原頂端。` }));
+  arr[0] = arr[last]; arr.pop();
+  f.push(makeFrame(arr, { highlight: [0], msg: `開始「下沉 (sift-down)」。` }));
+  siftDownFrames(arr, 0, arr.length, f);
+  f.push(makeFrame(arr, { msg: `取出 ${top} 完成 ✓` })); return { frames: f, result: arr };
+}
+function genBuildHeap(values) {
+  const f = [], arr = values.slice();
+  f.push(makeFrame(arr, { msg: `Build Heap:從索引 ${Math.floor(arr.length / 2) - 1} 由後往前下沉。` }));
+  for (let i = Math.floor(arr.length / 2) - 1; i >= 0; i--) {
+    f.push(makeFrame(arr, { highlight: [i], msg: `處理索引 ${i}(${arr[i]})。` })); siftDownFrames(arr, i, arr.length, f);
+  }
+  f.push(makeFrame(arr, { doneIdx: arr.map((_, k) => k), msg: `Build Heap 完成 ✓` })); return { frames: f, result: arr };
+}
+function genHeapSort(values) {
+  const f = [], arr = values.slice();
+  for (let i = Math.floor(arr.length / 2) - 1; i >= 0; i--) siftDownFrames(arr, i, arr.length, f);
+  f.push(makeFrame(arr, { msg: `已建好堆積,開始反覆把頂端換到尾端。` }));
+  for (let end = arr.length - 1; end > 0; end--) {
+    const done = []; for (let k = end + 1; k < arr.length; k++) done.push(k);
+    f.push(makeFrame(arr, { swap: [0, end], doneIdx: done, msg: `頂端 ${arr[0]} 換到索引 ${end},此處定案。` }));
+    [arr[0], arr[end]] = [arr[end], arr[0]]; siftDownFrames(arr, 0, end, f);
+  }
+  f.push(makeFrame(arr, { doneIdx: arr.map((_, k) => k), msg: `堆積排序完成 ✓` })); return { frames: f, result: arr };
+}
+
+// ============================================================ 排序演算法可視化（長條圖,frame.kind = 'sort'）
+function range(a, b) { const r = []; for (let i = a; i < b; i++) r.push(i); return r; }
+function sframe(a, opt = {}) {
+  return { kind: 'sort', arr: a.slice(), cmp: opt.cmp || null, swap: opt.swap || null, write: opt.write || null,
+    pivot: (opt.pivot == null ? null : opt.pivot), sorted: opt.sorted || [], range: opt.range || null, msg: opt.msg || '' };
+}
+function genBubble(arr) {
+  const f = [], a = arr.slice(), n = a.length, sorted = [];
+  for (let i = 0; i < n - 1; i++) {
+    for (let j = 0; j < n - 1 - i; j++) {
+      f.push(sframe(a, { cmp: [j, j + 1], sorted: sorted.slice(), msg: `比較 a[${j}]=${a[j]} 與 a[${j + 1}]=${a[j + 1]}。` }));
+      if (a[j] > a[j + 1]) { f.push(sframe(a, { swap: [j, j + 1], sorted: sorted.slice(), msg: `${a[j]} > ${a[j + 1]} → 交換。` })); [a[j], a[j + 1]] = [a[j + 1], a[j]]; }
+    }
+    sorted.unshift(n - 1 - i);
+  }
+  f.push(sframe(a, { sorted: a.map((_, k) => k), msg: `氣泡排序完成 ✓` })); return { frames: f, result: a };
+}
+function genSelection(arr) {
+  const f = [], a = arr.slice(), n = a.length, sorted = [];
+  for (let i = 0; i < n - 1; i++) {
+    let m = i;
+    for (let j = i + 1; j < n; j++) {
+      f.push(sframe(a, { cmp: [j, m], pivot: m, sorted: sorted.slice(), msg: `找最小:比較 a[${j}]=${a[j]} 與目前最小 a[${m}]=${a[m]}。` }));
+      if (a[j] < a[m]) m = j;
+    }
+    if (m !== i) { f.push(sframe(a, { swap: [i, m], sorted: sorted.slice(), msg: `把最小值 ${a[m]} 換到位置 ${i}。` })); [a[i], a[m]] = [a[m], a[i]]; }
+    sorted.push(i);
+  }
+  f.push(sframe(a, { sorted: a.map((_, k) => k), msg: `選擇排序完成 ✓` })); return { frames: f, result: a };
+}
+function genInsertion(arr) {
+  const f = [], a = arr.slice(), n = a.length;
+  for (let i = 1; i < n; i++) {
+    const key = a[i]; let j = i - 1;
+    f.push(sframe(a, { pivot: i, sorted: range(0, i), msg: `取出 a[${i}]=${key},往左找插入位置。` }));
+    while (j >= 0 && a[j] > key) {
+      f.push(sframe(a, { cmp: [j, j + 1], sorted: range(0, i), msg: `a[${j}]=${a[j]} > ${key} → 後移。` }));
+      a[j + 1] = a[j]; f.push(sframe(a, { write: [j + 1], sorted: range(0, i), msg: `後移:a[${j + 1}] = ${a[j + 1]}。` })); j--;
+    }
+    a[j + 1] = key; f.push(sframe(a, { write: [j + 1], sorted: range(0, i + 1), msg: `插入 ${key} 到位置 ${j + 1}。` }));
+  }
+  f.push(sframe(a, { sorted: a.map((_, k) => k), msg: `插入排序完成 ✓` })); return { frames: f, result: a };
+}
+function genShell(arr) {
+  const f = [], a = arr.slice(), n = a.length;
+  for (let gap = n >> 1; gap > 0; gap >>= 1) {
+    for (let i = gap; i < n; i++) {
+      const tmp = a[i]; let j = i;
+      f.push(sframe(a, { pivot: i, msg: `gap=${gap}:處理 a[${i}]=${tmp}。` }));
+      while (j >= gap && a[j - gap] > tmp) {
+        f.push(sframe(a, { cmp: [j, j - gap], msg: `a[${j - gap}]=${a[j - gap]} > ${tmp} → 後移 ${gap} 格。` }));
+        a[j] = a[j - gap]; f.push(sframe(a, { write: [j], msg: `後移:a[${j}] = ${a[j]}。` })); j -= gap;
+      }
+      a[j] = tmp; f.push(sframe(a, { write: [j], msg: `插入 ${tmp} 到位置 ${j}。` }));
+    }
+  }
+  f.push(sframe(a, { sorted: a.map((_, k) => k), msg: `希爾排序完成 ✓` })); return { frames: f, result: a };
+}
+function genMerge(arr) {
+  const f = [], a = arr.slice();
+  (function msort(lo, hi) {
+    if (hi - lo < 1) return;
+    const mid = (lo + hi) >> 1;
+    msort(lo, mid); msort(mid + 1, hi);
+    const tmp = []; let i = lo, j = mid + 1;
+    while (i <= mid && j <= hi) {
+      f.push(sframe(a, { cmp: [i, j], range: [lo, hi], msg: `合併 [${lo}..${hi}]:比較 ${a[i]} 與 ${a[j]}。` }));
+      if (a[i] <= a[j]) tmp.push(a[i++]); else tmp.push(a[j++]);
+    }
+    while (i <= mid) tmp.push(a[i++]);
+    while (j <= hi) tmp.push(a[j++]);
+    for (let k = 0; k < tmp.length; k++) { a[lo + k] = tmp[k]; f.push(sframe(a, { write: [lo + k], range: [lo, hi], msg: `寫回:a[${lo + k}] = ${tmp[k]}。` })); }
+  })(0, a.length - 1);
+  f.push(sframe(a, { sorted: a.map((_, k) => k), msg: `合併排序完成 ✓` })); return { frames: f, result: a };
+}
+function genQuick(arr) {
+  const f = [], a = arr.slice(), sorted = new Set();
+  (function qs(lo, hi) {
+    if (lo > hi) return;
+    if (lo === hi) { sorted.add(lo); return; }
+    const pivot = a[hi]; let i = lo;
+    f.push(sframe(a, { pivot: hi, range: [lo, hi], sorted: [...sorted], msg: `選 pivot = a[${hi}] = ${pivot}。` }));
+    for (let j = lo; j < hi; j++) {
+      f.push(sframe(a, { pivot: hi, cmp: [j, hi], range: [lo, hi], sorted: [...sorted], msg: `比較 a[${j}]=${a[j]} 與 pivot ${pivot}。` }));
+      if (a[j] < pivot) { if (i !== j) { f.push(sframe(a, { pivot: hi, swap: [i, j], range: [lo, hi], sorted: [...sorted], msg: `${a[j]} < pivot → 交換到左區。` })); [a[i], a[j]] = [a[j], a[i]]; } i++; }
+    }
+    if (i !== hi) { f.push(sframe(a, { swap: [i, hi], range: [lo, hi], sorted: [...sorted], msg: `把 pivot 換到正確位置 ${i}。` })); [a[i], a[hi]] = [a[hi], a[i]]; }
+    sorted.add(i); f.push(sframe(a, { sorted: [...sorted], msg: `pivot ${a[i]} 定位於 ${i}。` }));
+    qs(lo, i - 1); qs(i + 1, hi);
+  })(0, a.length - 1);
+  f.push(sframe(a, { sorted: a.map((_, k) => k), msg: `快速排序完成 ✓` })); return { frames: f, result: a };
+}
+function genHeapBars(arr) {
+  const f = [], a = arr.slice(), n = a.length;
+  function sd(i, sz, sorted) {
+    while (true) {
+      let l = 2 * i + 1, r = 2 * i + 2, t = i;
+      if (l < sz) { f.push(sframe(a, { cmp: [i, l], sorted: sorted.slice(), msg: `下沉:比較 a[${i}] 與左子 a[${l}]。` })); if (a[l] > a[t]) t = l; }
+      if (r < sz) { f.push(sframe(a, { cmp: [t, r], sorted: sorted.slice(), msg: `比較與右子 a[${r}]。` })); if (a[r] > a[t]) t = r; }
+      if (t === i) break;
+      f.push(sframe(a, { swap: [i, t], sorted: sorted.slice(), msg: `交換 a[${i}] 與 a[${t}]。` })); [a[i], a[t]] = [a[t], a[i]]; i = t;
+    }
+  }
+  for (let i = (n >> 1) - 1; i >= 0; i--) sd(i, n, []);
+  const sorted = [];
+  for (let end = n - 1; end > 0; end--) {
+    f.push(sframe(a, { swap: [0, end], sorted: sorted.slice(), msg: `把最大值換到尾端位置 ${end}。` })); [a[0], a[end]] = [a[end], a[0]];
+    sorted.unshift(end); sd(0, end, sorted);
+  }
+  f.push(sframe(a, { sorted: a.map((_, k) => k), msg: `堆積排序完成 ✓` })); return { frames: f, result: a };
+}
+function genCounting(arr) {
+  const f = [], a = arr.slice(), n = a.length, mx = Math.max(...a, 0), cnt = new Array(mx + 1).fill(0);
+  for (let i = 0; i < n; i++) { cnt[a[i]]++; f.push(sframe(a, { cmp: [i], msg: `統計:count[${a[i]}] 加 1。` })); }
+  const out = a.slice(); let idx = 0;
+  for (let v = 0; v <= mx; v++) while (cnt[v]-- > 0) { out[idx] = v; f.push(sframe(out, { write: [idx], sorted: range(0, idx), msg: `依大小寫回:a[${idx}] = ${v}。` })); idx++; }
+  f.push(sframe(out, { sorted: out.map((_, k) => k), msg: `計數排序完成 ✓` })); return { frames: f, result: out };
+}
+function genRadix(arr) {
+  const f = [], a = arr.slice(), n = a.length, mx = Math.max(...a, 0);
+  for (let exp = 1; Math.floor(mx / exp) > 0; exp *= 10) {
+    const buckets = Array.from({ length: 10 }, () => []);
+    for (let i = 0; i < n; i++) { const d = Math.floor(a[i] / exp) % 10; buckets[d].push(a[i]); f.push(sframe(a, { cmp: [i], msg: `位數(${exp}):a[${i}]=${a[i]} → 桶 ${d}。` })); }
+    let idx = 0;
+    for (let d = 0; d < 10; d++) for (const v of buckets[d]) { a[idx] = v; f.push(sframe(a, { write: [idx], msg: `收集桶 ${d}:a[${idx}] = ${v}。` })); idx++; }
+  }
+  f.push(sframe(a, { sorted: a.map((_, k) => k), msg: `基數排序完成 ✓` })); return { frames: f, result: a };
+}
+const SORTGEN = { bubble: genBubble, selection: genSelection, insertion: genInsertion, shell: genShell, merge: genMerge, quick: genQuick, heap: genHeapBars, counting: genCounting, radix: genRadix };
+const SORTBIG = { sortBubble: 'O(n²)', sortSelection: 'O(n²)', sortInsertion: 'O(n²)', sortShell: '~O(n^1.3)', sortMerge: 'O(n log n)', sortQuick: 'O(n log n)平均', sortHeap: 'O(n log n)', sortCounting: 'O(n+k)', sortRadix: 'O(d·(n+k))' };
+
+// ---- Min-Max Heap ----
+function mmUpFrames(a, i, mn, f) {
+  while (i > 2) {
+    const g = gpar0(i);
+    f.push(makeFrame(a, { idxBase: 0, minmax: true, highlight: [i, g], msg: `與祖父 ${a[g]}(索引${g})比較(${mn ? 'min' : 'max'} 上浮)。` }));
+    if (mn ? a[i] < a[g] : a[i] > a[g]) {
+      f.push(makeFrame(a, { idxBase: 0, minmax: true, swap: [i, g], msg: `${mn ? '較小' : '較大'} → 交換,繼續上浮。` }));
+      [a[i], a[g]] = [a[g], a[i]]; i = g;
+    } else break;
+  }
+  f.push(makeFrame(a, { idxBase: 0, minmax: true, doneIdx: [i], msg: `定位於索引 ${i} ✓` }));
+}
+function genMinMaxInsert(base, x) {
+  const f = [], a = base.slice(); a.push(x); const i = a.length - 1;
+  const AF = o => f.push(makeFrame(a, Object.assign({ idxBase: 0, minmax: true }, o)));
+  AF({ newIdx: i, highlight: [i], msg: `插入 ${x} 到索引 ${i}(${isMin(i) ? 'min' : 'max'} 層)。` });
+  if (i === 0) { AF({ doneIdx: [0], msg: `第一個元素,成為根(min 層)✓` }); return { frames: f, result: a }; }
+  const p = par0(i);
+  AF({ highlight: [i, p], newIdx: i, msg: `與父 ${a[p]}(索引${p}, ${isMin(p) ? 'min' : 'max'} 層)比較。` });
+  if (isMin(i)) {
+    if (a[i] > a[p]) { AF({ swap: [i, p], msg: `在 min 層卻比父(max)大 → 交換,改走 max 上浮。` }); [a[i], a[p]] = [a[p], a[i]]; mmUpFrames(a, p, false, f); }
+    else mmUpFrames(a, i, true, f);
+  } else {
+    if (a[i] < a[p]) { AF({ swap: [i, p], msg: `在 max 層卻比父(min)小 → 交換,改走 min 上浮。` }); [a[i], a[p]] = [a[p], a[i]]; mmUpFrames(a, p, true, f); }
+    else mmUpFrames(a, i, false, f);
+  }
+  return { frames: f, result: a };
+}
+function mmCandidates(a, i, n) {
+  const res = [];
+  for (const c of [2 * i + 1, 2 * i + 2]) if (c < n) { res.push(c); for (const gc of [2 * c + 1, 2 * c + 2]) if (gc < n) res.push(gc); }
+  return res;
+}
+function mmTrickleDownFrames(a, i, n, f) {
+  const AF = o => f.push(makeFrame(a, Object.assign({ idxBase: 0, minmax: true }, o)));
+  while (true) {
+    const mn = isMin(i), cands = mmCandidates(a, i, n);
+    if (!cands.length) { AF({ doneIdx: [i], msg: `索引 ${i} 無子孫,下沉結束 ✓` }); return; }
+    AF({ highlight: [i].concat(cands), msg: `找索引 ${i}(${a[i]})的子/孫中${mn ? '最小' : '最大'}者。` });
+    let m = cands[0]; for (const k of cands) if (mn ? a[k] < a[m] : a[k] > a[m]) m = k;
+    if (par0(m) !== i) {                 // m 是孫節點
+      if (mn ? a[m] < a[i] : a[m] > a[i]) {
+        AF({ swap: [i, m], msg: `最${mn ? '小' : '大'}者是孫 ${a[m]} → 與 ${a[i]} 交換。` });
+        [a[i], a[m]] = [a[m], a[i]];
+        const pm = par0(m);
+        if (mn ? a[m] > a[pm] : a[m] < a[pm]) { AF({ swap: [m, pm], msg: `交換後與其父 ${a[pm]} 不符 → 修正交換。` }); [a[m], a[pm]] = [a[pm], a[m]]; }
+        i = m;
+      } else { AF({ doneIdx: [i], msg: `${a[i]} 已符合,定位於索引 ${i} ✓` }); return; }
+    } else {                              // m 是子節點
+      if (mn ? a[m] < a[i] : a[m] > a[i]) { AF({ swap: [i, m], msg: `最${mn ? '小' : '大'}者是子 ${a[m]} → 交換。` }); [a[i], a[m]] = [a[m], a[i]]; AF({ doneIdx: [m], msg: `下沉到底,定位完成 ✓` }); }
+      else AF({ doneIdx: [i], msg: `${a[i]} 已符合,定位於索引 ${i} ✓` });
+      return;
+    }
+  }
+}
+function genMinMaxDeleteMin(base) {
+  const f = [], a = base.slice();
+  const AF = o => f.push(makeFrame(a, Object.assign({ idxBase: 0, minmax: true }, o)));
+  if (!a.length) { AF({ msg: '堆積為空。' }); return { frames: f, result: a }; }
+  const mn = a[0];
+  AF({ highlight: [0], msg: `最小值在根(min 層):取出 ${mn}。` });
+  if (a.length === 1) { a.pop(); AF({ msg: `移除完成 ✓` }); return { frames: f, result: a }; }
+  const last = a.length - 1;
+  AF({ swap: [0, last], msg: `把末端 ${a[last]} 移到根,移除原最小值。` });
+  a[0] = a[last]; a.pop();
+  AF({ highlight: [0], msg: `對根做 min 下沉(在子+孫中找最小)。` });
+  mmTrickleDownFrames(a, 0, a.length, f);
+  AF({ msg: `刪除最小值 ${mn} 完成 ✓` });
+  return { frames: f, result: a };
+}
+function genMinMaxDeleteMax(base) {
+  const f = [], a = base.slice();
+  const AF = o => f.push(makeFrame(a, Object.assign({ idxBase: 0, minmax: true }, o)));
+  if (!a.length) { AF({ msg: '堆積為空。' }); return { frames: f, result: a }; }
+  if (a.length === 1) { const mx = a[0]; AF({ highlight: [0], msg: `只有一個元素,最大值 ${mx}。` }); a.pop(); AF({ msg: `移除完成 ✓` }); return { frames: f, result: a }; }
+  let mi = 1; if (a.length > 2 && a[2] > a[1]) mi = 2;
+  const mx = a[mi];
+  AF({ highlight: a.length > 2 ? [1, 2] : [1], msg: `最大值在第 1 層(max 層):索引1=${a[1]}${a.length > 2 ? `、索引2=${a[2]}` : ''},最大為 ${mx}(索引${mi})。` });
+  const last = a.length - 1;
+  if (mi === last) { a.pop(); AF({ msg: `最大值即末端,直接移除 ✓` }); return { frames: f, result: a }; }
+  AF({ swap: [mi, last], msg: `把末端 ${a[last]} 移到索引 ${mi},移除原最大值。` });
+  a[mi] = a[last]; a.pop();
+  AF({ highlight: [mi], msg: `對索引 ${mi} 做 max 下沉(在子+孫中找最大)。` });
+  mmTrickleDownFrames(a, mi, a.length, f);
+  AF({ msg: `刪除最大值 ${mx} 完成 ✓` });
+  return { frames: f, result: a };
+}
+
+// ---- DEAP ----
+function deapUpFrames(a, i, mn, f) {
+  while ((i >> 1) !== 1) {
+    const pi = i >> 1;
+    f.push(makeFrame(a, { idxBase: 1, highlight: [i, pi], msg: `與父 ${a[pi]}(位置${pi})比較。` }));
+    if (mn ? a[i] < a[pi] : a[i] > a[pi]) {
+      f.push(makeFrame(a, { idxBase: 1, swap: [i, pi], msg: `不符合 ${mn ? 'min' : 'max'}-heap → 交換。` }));
+      [a[i], a[pi]] = [a[pi], a[i]]; i = pi;
+    } else break;
+  }
+  f.push(makeFrame(a, { idxBase: 1, doneIdx: [i], msg: `定位於位置 ${i} ✓` }));
+}
+function genDeapInsert(base, x) {
+  const f = [], a = base.slice(); a.push(x); const i = a.length - 1, last = a.length - 1;
+  const AF = o => f.push(makeFrame(a, Object.assign({ idxBase: 1 }, o)));
+  AF({ newIdx: i, highlight: [i], msg: `插入 ${x} 到位置 ${i}(${i === 2 ? 'min-heap 根' : inMinD(i) ? 'min-heap' : 'max-heap'})。` });
+  if (i === 2) { AF({ doneIdx: [2], msg: `第一個元素放進 min-heap 根 ✓` }); return { frames: f, result: a }; }
+  if (inMinD(i)) {
+    const jj = i + halfd(i), j = jj <= last ? jj : (jj >> 1);
+    AF({ highlight: [i, j], newIdx: i, msg: `max-heap 對應夥伴在位置 ${j}(${a[j]}),比較 ${x} 與 ${a[j]}。` });
+    if (x > a[j]) { AF({ swap: [i, j], msg: `${x} 比 max 夥伴大 → 放進 max-heap 並上浮。` }); a[i] = a[j]; a[j] = x; deapUpFrames(a, j, false, f); }
+    else { AF({ msg: `${x} 不大於夥伴,留在 min-heap 上浮。` }); deapUpFrames(a, i, true, f); }
+  } else {
+    const j = i - halfd(i);
+    AF({ highlight: [i, j], newIdx: i, msg: `min-heap 對應夥伴在位置 ${j}(${a[j]}),比較 ${x} 與 ${a[j]}。` });
+    if (x < a[j]) { AF({ swap: [i, j], msg: `${x} 比 min 夥伴小 → 放進 min-heap 並上浮。` }); a[i] = a[j]; a[j] = x; deapUpFrames(a, j, true, f); }
+    else { AF({ msg: `${x} 不小於夥伴,留在 max-heap 上浮。` }); deapUpFrames(a, i, false, f); }
+  }
+  return { frames: f, result: a };
+}
+
+// ---- SMMH ----
+function genSmmhInsert(base, x) {
+  const f = [], a = base.slice(); a.push(x); let i = a.length - 1; const n = a.length - 1;
+  const AF = o => f.push(makeFrame(a, Object.assign({ idxBase: 1 }, o)));
+  AF({ newIdx: i, highlight: [i], msg: `插入 ${x} 到位置 ${i}。` });
+  if (i % 2 === 1 && a[i - 1] != null && a[i - 1] > a[i]) {
+    AF({ swap: [i, i - 1], msg: `與左兄弟 ${a[i - 1]} 比:右<左 → 交換,維持「左 ≤ 右」。` });
+    [a[i - 1], a[i]] = [a[i], a[i - 1]]; i = i - 1;
+  }
+  while (true) {
+    const g = i >> 2; if (g < 1) break;
+    const Lc = 2 * g, Rc = 2 * g + 1;
+    AF({ highlight: [i, Lc].concat(Rc <= n ? [Rc] : []), msg: `和祖父的左子 ${a[Lc]}(位置${Lc})${Rc <= n ? `、右子 ${a[Rc]}(位置${Rc})` : ''} 比較。` });
+    if (a[Lc] != null && a[i] < a[Lc]) { AF({ swap: [i, Lc], msg: `比左子小 → 交換(min 上浮)。` }); [a[i], a[Lc]] = [a[Lc], a[i]]; i = Lc; }
+    else if (Rc <= n && a[Rc] != null && a[i] > a[Rc]) { AF({ swap: [i, Rc], msg: `比右子大 → 交換(max 上浮)。` }); [a[i], a[Rc]] = [a[Rc], a[i]]; i = Rc; }
+    else break;
+  }
+  AF({ doneIdx: [i], msg: `SMMH 插入完成,定位於位置 ${i} ✓` }); return { frames: f, result: a };
+}
+
+function arrayInsertGen(arr, v) {
+  switch (mode) {
+    case 'max': case 'min': return genInsert(arr, v);
+    case 'minmax': return genMinMaxInsert(arr, v);
+    case 'deap': return genDeapInsert(arr, v);
+    case 'smmh': return genSmmhInsert(arr, v);
+  }
+}
+
+// ============================================================ 樹 (BST / AVL / RBT)
+function newNode(v) { return { id: ++nodeSeq, val: v, left: null, right: null, height: 1, color: null, p: null }; }
+function height(n) { return n ? n.height : 0; }
+function updateH(n) { n.height = 1 + Math.max(height(n.left), height(n.right)); }
+function bf(n) { return n ? height(n.left) - height(n.right) : 0; }
+function rotateRight(y) { const x = y.left, t = x.right; x.right = y; y.left = t; updateH(y); updateH(x); return x; }
+function rotateLeft(x) { const y = x.right, t = y.left; y.left = x; x.right = t; updateH(x); updateH(y); return y; }
+
+function snapshotTree(root) {
+  const nodes = [], edges = []; let order = 0;
+  (function dfs(n, depth, pid) {
+    if (!n) return;
+    dfs(n.left, depth + 1, n.id);
+    nodes.push({ id: n.id, val: n.val, depth, inorder: order++, bf: bf(n), color: n.color });
+    if (pid != null) edges.push([pid, n.id]);
+    dfs(n.right, depth + 1, n.id);
+  })(root, 0, null);
+  return { nodes, edges };
+}
+function treeFrame(root, stateMap, msg) {
+  const s = snapshotTree(root);
+  return { kind: 'tree', nodes: s.nodes, edges: s.edges, order: s.nodes.map(n => n.val), state: Object.assign({}, stateMap), msg };
+}
+
+function genBSTInsert(root, v) {
+  const f = [], node = newNode(v);
+  if (!root) { root = node; f.push(treeFrame(root, { [node.id]: 'new' }, `樹為空,${v} 成為根 ✓`)); return { frames: f, root }; }
+  let cur = root; const path = {};
+  while (true) {
+    f.push(treeFrame(root, Object.assign({}, path, { [cur.id]: 'cmp' }), `比較 ${v} 與 ${cur.val}:${v < cur.val ? '較小 → 左' : v > cur.val ? '較大 → 右' : '相等(已存在)'}。`));
+    path[cur.id] = 'visit';
+    if (v === cur.val) { f.push(treeFrame(root, path, `${v} 已存在。`)); return { frames: f, root }; }
+    if (v < cur.val) { if (cur.left) cur = cur.left; else { cur.left = node; break; } }
+    else { if (cur.right) cur = cur.right; else { cur.right = node; break; } }
+  }
+  f.push(treeFrame(root, Object.assign({}, path, { [node.id]: 'new' }), `找到空位,插入 ${v} ✓`)); return { frames: f, root };
+}
+function genBSTSearch(root, v) {
+  const f = []; if (!root) return { frames: [treeFrame(null, {}, '樹為空。')], root };
+  let cur = root; const path = {};
+  while (cur) {
+    if (cur.val === v) { f.push(treeFrame(root, Object.assign({}, path, { [cur.id]: 'done' }), `找到 ${v} ✓`)); return { frames: f, root }; }
+    f.push(treeFrame(root, Object.assign({}, path, { [cur.id]: 'cmp' }), `比較 ${v} 與 ${cur.val} → 往${v < cur.val ? '左' : '右'}。`));
+    path[cur.id] = 'visit'; cur = v < cur.val ? cur.left : cur.right;
+  }
+  f.push(treeFrame(root, path, `找不到 ${v} ✗`)); return { frames: f, root };
+}
+function genBSTDelete(root, v) {
+  const f = []; if (!root) return { frames: [treeFrame(null, {}, '樹為空。')], root };
+  let cur = root, parent = null; const path = {};
+  while (cur && cur.val !== v) {
+    f.push(treeFrame(root, Object.assign({}, path, { [cur.id]: 'cmp' }), `尋找 ${v}:與 ${cur.val} 比較,往${v < cur.val ? '左' : '右'}。`));
+    path[cur.id] = 'visit'; parent = cur; cur = v < cur.val ? cur.left : cur.right;
+  }
+  if (!cur) { f.push(treeFrame(root, path, `找不到 ${v}。`)); return { frames: f, root }; }
+  f.push(treeFrame(root, Object.assign({}, path, { [cur.id]: 'swap' }), `找到 ${v},準備刪除。`));
+  if (cur.left && cur.right) {
+    f.push(treeFrame(root, { [cur.id]: 'swap' }, `有兩個子節點:找右子樹最小值(中序後繼)取代。`));
+    let sp = cur, s = cur.right;
+    while (s.left) { f.push(treeFrame(root, { [cur.id]: 'swap', [s.id]: 'cmp' }, `往左找最小值,目前 ${s.val}。`)); sp = s; s = s.left; }
+    f.push(treeFrame(root, { [cur.id]: 'swap', [s.id]: 'done' }, `後繼 ${s.val},複製到刪除位置。`));
+    cur.val = s.val;
+    if (sp.left === s) sp.left = s.right; else sp.right = s.right;
+    f.push(treeFrame(root, { [cur.id]: 'done' }, `刪除完成 ✓`)); return { frames: f, root };
+  }
+  const child = cur.left || cur.right;
+  if (!parent) root = child; else if (parent.left === cur) parent.left = child; else parent.right = child;
+  f.push(treeFrame(root, child ? { [child.id]: 'new' } : {}, child ? `以子節點 ${child.val} 接上。刪除完成 ✓` : `葉節點,直接移除 ✓`));
+  return { frames: f, root };
+}
+function genAVLInsert(rootArg, v) {
+  const f = []; let root = rootArg; const node = newNode(v);
+  if (!root) { root = node; f.push(treeFrame(root, { [node.id]: 'new' }, `空樹,${v} 成為根。`)); return { frames: f, root }; }
+  const stack = []; let cur = root; const path = {};
+  while (true) {
+    f.push(treeFrame(root, Object.assign({}, path, { [cur.id]: 'cmp' }), `比較 ${v} 與 ${cur.val},往${v < cur.val ? '左' : '右'}。`));
+    path[cur.id] = 'visit'; stack.push(cur);
+    if (v === cur.val) { f.push(treeFrame(root, path, `${v} 已存在。`)); return { frames: f, root }; }
+    if (v < cur.val) { if (cur.left) cur = cur.left; else { cur.left = node; break; } }
+    else { if (cur.right) cur = cur.right; else { cur.right = node; break; } }
+  }
+  f.push(treeFrame(root, Object.assign({}, path, { [node.id]: 'new' }), `插入 ${v},由下往上更新高度與平衡因子 BF。`));
+  for (let i = stack.length - 1; i >= 0; i--) {
+    const nd = stack[i]; updateH(nd); const balance = bf(nd); const parent = i > 0 ? stack[i - 1] : null;
+    f.push(treeFrame(root, { [nd.id]: 'cmp' }, `節點 ${nd.val}:高度=${nd.height},BF=${balance}。`));
+    let ns = nd;
+    if (balance > 1 && bf(nd.left) >= 0) { f.push(treeFrame(root, { [nd.id]: 'swap' }, `LL 失衡 → 對 ${nd.val} 右旋。`)); ns = rotateRight(nd); }
+    else if (balance > 1 && bf(nd.left) < 0) { f.push(treeFrame(root, { [nd.id]: 'swap', [nd.left.id]: 'cmp' }, `LR 失衡 → 左子左旋後,${nd.val} 右旋。`)); nd.left = rotateLeft(nd.left); ns = rotateRight(nd); }
+    else if (balance < -1 && bf(nd.right) <= 0) { f.push(treeFrame(root, { [nd.id]: 'swap' }, `RR 失衡 → 對 ${nd.val} 左旋。`)); ns = rotateLeft(nd); }
+    else if (balance < -1 && bf(nd.right) > 0) { f.push(treeFrame(root, { [nd.id]: 'swap', [nd.right.id]: 'cmp' }, `RL 失衡 → 右子右旋後,${nd.val} 左旋。`)); nd.right = rotateRight(nd.right); ns = rotateLeft(nd); }
+    if (ns !== nd) {
+      if (!parent) root = ns; else if (parent.left === nd) parent.left = ns; else parent.right = ns;
+      f.push(treeFrame(root, { [ns.id]: 'done' }, `旋轉完成,子樹根變為 ${ns.val}。`));
+    }
+  }
+  f.push(treeFrame(root, {}, `AVL 插入 ${v} 完成,維持平衡 ✓`)); return { frames: f, root };
+}
+function genRBInsert(rootArg, v) {
+  let root = rootArg; const f = [];
+  const TF = (st, m) => f.push(treeFrame(root, st, m));
+  function rotL(x) { const y = x.right; x.right = y.left; if (y.left) y.left.p = x; y.p = x.p; if (!x.p) root = y; else if (x === x.p.left) x.p.left = y; else x.p.right = y; y.left = x; x.p = y; }
+  function rotR(x) { const y = x.left; x.left = y.right; if (y.right) y.right.p = x; y.p = x.p; if (!x.p) root = y; else if (x === x.p.right) x.p.right = y; else x.p.left = y; y.right = x; x.p = y; }
+  let z = newNode(v); z.color = 'red';
+  if (!root) { z.color = 'black'; root = z; TF({ [z.id]: 'new' }, `空樹:插入 ${v} 為根,塗黑 ✓`); return { frames: f, root }; }
+  let y = null, x = root; const path = {};
+  while (x) { TF(Object.assign({}, path, { [x.id]: 'cmp' }), `比較 ${v} 與 ${x.val},往${v < x.val ? '左' : '右'}。`); path[x.id] = 'visit'; if (v === x.val) { TF(path, `${v} 已存在。`); return { frames: f, root }; } y = x; x = v < x.val ? x.left : x.right; }
+  z.p = y; if (v < y.val) y.left = z; else y.right = z;
+  TF(Object.assign({}, path, { [z.id]: 'new' }), `插入 ${v} 為紅色節點,開始修正紅黑性質。`);
+  while (z.p && z.p.color === 'red') {
+    const gp = z.p.p;
+    if (z.p === gp.left) {
+      const u = gp.right;
+      if (u && u.color === 'red') {
+        TF({ [z.p.id]: 'cmp', [u.id]: 'cmp', [gp.id]: 'cmp' }, `叔叔為紅 → 父、叔塗黑,祖父塗紅,往上繼續。`);
+        z.p.color = 'black'; u.color = 'black'; gp.color = 'red'; z = gp; TF({ [z.id]: 'visit' }, `以 ${z.val} 為目前節點繼續檢查。`);
+      } else {
+        if (z === z.p.right) { z = z.p; TF({ [z.id]: 'swap' }, `LR 情況 → 先對 ${z.val} 左旋。`); rotL(z); }
+        z.p.color = 'black'; gp.color = 'red'; TF({ [z.p.id]: 'swap', [gp.id]: 'swap' }, `LL 情況 → 父塗黑、祖父塗紅,對 ${gp.val} 右旋。`); rotR(gp);
+      }
+    } else {
+      const u = gp.left;
+      if (u && u.color === 'red') {
+        TF({ [z.p.id]: 'cmp', [u.id]: 'cmp', [gp.id]: 'cmp' }, `叔叔為紅 → 父、叔塗黑,祖父塗紅,往上繼續。`);
+        z.p.color = 'black'; u.color = 'black'; gp.color = 'red'; z = gp; TF({ [z.id]: 'visit' }, `以 ${z.val} 為目前節點繼續檢查。`);
+      } else {
+        if (z === z.p.left) { z = z.p; TF({ [z.id]: 'swap' }, `RL 情況 → 先對 ${z.val} 右旋。`); rotR(z); }
+        z.p.color = 'black'; gp.color = 'red'; TF({ [z.p.id]: 'swap', [gp.id]: 'swap' }, `RR 情況 → 父塗黑、祖父塗紅,對 ${gp.val} 左旋。`); rotL(gp);
+      }
+    }
+  }
+  if (root.color !== 'black') { root.color = 'black'; TF({ [root.id]: 'done' }, `根節點塗黑(規則:根為黑)。`); }
+  TF({}, `紅黑樹插入 ${v} 完成 ✓`); return { frames: f, root };
+}
+function genRBDelete(rootArg, val) {
+  let root = rootArg; const f = [];
+  const TF = (st, m) => f.push(treeFrame(root, st, m));
+  const color = n => n ? n.color : 'black';
+  function rotL(x) { const y = x.right; x.right = y.left; if (y.left) y.left.p = x; y.p = x.p; if (!x.p) root = y; else if (x === x.p.left) x.p.left = y; else x.p.right = y; y.left = x; x.p = y; }
+  function rotR(x) { const y = x.left; x.left = y.right; if (y.right) y.right.p = x; y.p = x.p; if (!x.p) root = y; else if (x === x.p.right) x.p.right = y; else x.p.left = y; y.right = x; x.p = y; }
+  function transplant(u, v) { if (!u.p) root = v; else if (u === u.p.left) u.p.left = v; else u.p.right = v; if (v) v.p = u.p; }
+  if (!root) { return { frames: [treeFrame(null, {}, '樹為空。')], root }; }
+  let z = root; const path = {};
+  while (z && z.val !== val) { TF(Object.assign({}, path, { [z.id]: 'cmp' }), `尋找 ${val}:與 ${z.val} 比較,往${val < z.val ? '左' : '右'}。`); path[z.id] = 'visit'; z = val < z.val ? z.left : z.right; }
+  if (!z) { TF(path, `找不到 ${val},無法刪除。`); return { frames: f, root }; }
+  TF(Object.assign({}, path, { [z.id]: 'swap' }), `找到 ${val}(${z.color} 節點),準備刪除。`);
+  let y = z, yc = y.color, x = null, xp = null;
+  if (!z.left) { x = z.right; xp = z.p; transplant(z, z.right); }
+  else if (!z.right) { x = z.left; xp = z.p; transplant(z, z.left); }
+  else {
+    y = z.right; while (y.left) y = y.left;
+    TF({ [z.id]: 'swap', [y.id]: 'done' }, `有兩個子節點:用中序後繼 ${y.val} 取代被刪節點。`);
+    yc = y.color; x = y.right;
+    if (y.p === z) { xp = y; } else { xp = y.p; transplant(y, y.right); y.right = z.right; y.right.p = y; }
+    transplant(z, y); y.left = z.left; y.left.p = y; y.color = z.color;
+    TF({ [y.id]: 'swap' }, `${y.val} 接到原位置並沿用其顏色。實際被移走的是後繼節點(${yc})。`);
+  }
+  TF({}, yc === 'black' ? `移走的是黑節點,黑高度被破壞 → 進行「刪除修正」。` : `移走的是紅節點,紅黑性質仍成立,無需修正 ✓`);
+  if (yc === 'black') {
+    while (x !== root && color(x) === 'black') {
+      const left = x === (xp ? xp.left : null);
+      if (left) {
+        let w = xp.right;
+        if (color(w) === 'red') { TF({ [w.id]: 'swap', [xp.id]: 'swap' }, `兄弟 ${w.val} 為紅(情況1)→ 兄弟塗黑、父塗紅,對父左旋。`); w.color = 'black'; xp.color = 'red'; rotL(xp); w = xp.right; }
+        if (color(w.left) === 'black' && color(w.right) === 'black') { TF({ [w.id]: 'cmp' }, `兄弟 ${w.val} 兩子皆黑(情況2)→ 兄弟塗紅,雙黑上移到父 ${xp.val}。`); w.color = 'red'; x = xp; xp = xp.p; }
+        else {
+          if (color(w.right) === 'black') { if (w.left) w.left.color = 'black'; w.color = 'red'; TF({ [w.id]: 'swap' }, `情況3 → 兄弟左子塗黑、兄弟塗紅,對兄弟右旋。`); rotR(w); w = xp.right; }
+          w.color = xp.color; xp.color = 'black'; if (w.right) w.right.color = 'black';
+          TF({ [w.id]: 'swap', [xp.id]: 'swap' }, `情況4 → 重新著色後對父 ${xp.val} 左旋,修正完成。`); rotL(xp); x = root; xp = null;
+        }
+      } else {
+        let w = xp.left;
+        if (color(w) === 'red') { TF({ [w.id]: 'swap', [xp.id]: 'swap' }, `兄弟 ${w.val} 為紅(情況1)→ 兄弟塗黑、父塗紅,對父右旋。`); w.color = 'black'; xp.color = 'red'; rotR(xp); w = xp.left; }
+        if (color(w.right) === 'black' && color(w.left) === 'black') { TF({ [w.id]: 'cmp' }, `兄弟 ${w.val} 兩子皆黑(情況2)→ 兄弟塗紅,雙黑上移到父 ${xp.val}。`); w.color = 'red'; x = xp; xp = xp.p; }
+        else {
+          if (color(w.left) === 'black') { if (w.right) w.right.color = 'black'; w.color = 'red'; TF({ [w.id]: 'swap' }, `情況3 → 兄弟右子塗黑、兄弟塗紅,對兄弟左旋。`); rotL(w); w = xp.left; }
+          w.color = xp.color; xp.color = 'black'; if (w.left) w.left.color = 'black';
+          TF({ [w.id]: 'swap', [xp.id]: 'swap' }, `情況4 → 重新著色後對父 ${xp.val} 右旋,修正完成。`); rotR(xp); x = root; xp = null;
+        }
+      }
+    }
+    if (x) x.color = 'black';
+  }
+  if (root) root.color = 'black';
+  TF({}, `紅黑樹刪除 ${val} 完成 ✓`); return { frames: f, root };
+}
+function genAVLDelete(rootArg, v) {
+  let root = rootArg; const f = [];
+  const TF = (st, m) => f.push(treeFrame(root, st, m));
+  if (!root) return { frames: [treeFrame(null, {}, '樹為空。')], root };
+  const stack = []; let cur = root, parent = null; const path = {};
+  while (cur && cur.val !== v) {
+    TF(Object.assign({}, path, { [cur.id]: 'cmp' }), `尋找 ${v}:與 ${cur.val} 比較,往${v < cur.val ? '左' : '右'}。`);
+    path[cur.id] = 'visit'; stack.push(cur); parent = cur; cur = v < cur.val ? cur.left : cur.right;
+  }
+  if (!cur) { TF(path, `找不到 ${v},無法刪除。`); return { frames: f, root }; }
+  TF(Object.assign({}, path, { [cur.id]: 'swap' }), `找到 ${v},準備刪除。`);
+  if (cur.left && cur.right) {
+    TF({ [cur.id]: 'swap' }, `有兩個子節點:用中序後繼取代。`);
+    stack.push(cur); let sp = cur, s = cur.right;
+    while (s.left) { stack.push(s); sp = s; s = s.left; }
+    TF({ [cur.id]: 'swap', [s.id]: 'done' }, `後繼 ${s.val},複製到刪除位置。`);
+    cur.val = s.val;
+    if (sp.left === s) sp.left = s.right; else sp.right = s.right;
+  } else {
+    const child = cur.left || cur.right;
+    if (!parent) root = child; else if (parent.left === cur) parent.left = child; else parent.right = child;
+    TF({}, child ? `以子節點 ${child.val} 接上。` : `葉節點,直接移除。`);
+  }
+  for (let i = stack.length - 1; i >= 0; i--) {
+    const nd = stack[i]; updateH(nd); const b = bf(nd); const par = i > 0 ? stack[i - 1] : null;
+    TF({ [nd.id]: 'cmp' }, `回溯:節點 ${nd.val} 高度=${nd.height},BF=${b}。`);
+    let ns = nd;
+    if (b > 1 && bf(nd.left) >= 0) { TF({ [nd.id]: 'swap' }, `LL 失衡 → 右旋。`); ns = rotateRight(nd); }
+    else if (b > 1 && bf(nd.left) < 0) { TF({ [nd.id]: 'swap', [nd.left.id]: 'cmp' }, `LR 失衡 → 左子左旋後右旋。`); nd.left = rotateLeft(nd.left); ns = rotateRight(nd); }
+    else if (b < -1 && bf(nd.right) <= 0) { TF({ [nd.id]: 'swap' }, `RR 失衡 → 左旋。`); ns = rotateLeft(nd); }
+    else if (b < -1 && bf(nd.right) > 0) { TF({ [nd.id]: 'swap', [nd.right.id]: 'cmp' }, `RL 失衡 → 右子右旋後左旋。`); nd.right = rotateRight(nd.right); ns = rotateLeft(nd); }
+    if (ns !== nd) {
+      if (!par) root = ns; else if (par.left === nd) par.left = ns; else par.right = ns;
+      TF({ [ns.id]: 'done' }, `旋轉完成,子樹根變為 ${ns.val}。`);
+    }
+  }
+  TF({}, `AVL 刪除 ${v} 完成,維持平衡 ✓`); return { frames: f, root };
+}
+function treeDeleteGen(root, v) {
+  return mode === 'avl' ? genAVLDelete(root, v) : mode === 'rbt' ? genRBDelete(root, v) : genBSTDelete(root, v);
+}
+
+// ---- 陣列結構:查找 / 改鍵 / 刪除 ----
+function genFindArray(base, v) {
+  const f = [], a = base.slice(), ib = idxBaseFor(mode), start = ib === 1 ? 2 : 0;
+  const AF = o => f.push(makeFrame(a, Object.assign({ idxBase: ib, minmax: mode === 'minmax' }, o)));
+  for (let i = start; i < a.length; i++) {
+    if (a[i] == null) continue;
+    AF({ highlight: [i], msg: `查找 ${v}:掃描索引 ${i} = ${a[i]} ${a[i] === v ? '→ 命中 ✓' : '→ 不符'}。` });
+    if (a[i] === v) { AF({ doneIdx: [i], msg: `在索引 ${i} 找到 ${v} ✓` }); return { frames: f, result: a }; }
+  }
+  AF({ msg: `掃描完畢,找不到 ${v} ✗` }); return { frames: f, result: a };
+}
+function genHeapModify(base, oldV, newV) {
+  const f = [], a = base.slice(), i = a.indexOf(oldV);
+  if (i < 0) return { frames: [makeFrame(a, { msg: `找不到 ${oldV}。` })], result: a };
+  const AF = o => f.push(makeFrame(a, o)); const ismax = heapType === 'max';
+  AF({ highlight: [i], newIdx: i, msg: `把索引 ${i} 的 ${oldV} 改成 ${newV}(${ismax ? 'Max' : 'Min'}-Heap)。` });
+  a[i] = newV;
+  if ((ismax && newV > oldV) || (!ismax && newV < oldV)) {
+    AF({ highlight: [i], newIdx: i, msg: `新值${ismax ? '更大' : '更小'} → 往上「上浮」。` });
+    let j = i;
+    while (j > 0) { const p = (j - 1) >> 1; AF({ highlight: [j, p], newIdx: j, msg: `與父 ${a[p]} 比較。` }); if (violates(a[p], a[j])) { AF({ swap: [j, p], msg: `交換。` }); [a[j], a[p]] = [a[p], a[j]]; j = p; } else break; }
+    AF({ doneIdx: [j], msg: `改鍵完成,定位於索引 ${j} ✓` });
+  } else {
+    AF({ highlight: [i], msg: `新值${ismax ? '更小' : '更大'} → 往下「下沉」。` });
+    siftDownFrames(a, i, a.length, f); AF({ msg: `改鍵完成 ✓` });
+  }
+  return { frames: f, result: a };
+}
+function genHeapDeleteAt(base, v) {
+  const f = [], a = base.slice(), i = a.indexOf(v);
+  if (i < 0) return { frames: [makeFrame(a, { msg: `找不到 ${v}。` })], result: a };
+  const AF = o => f.push(makeFrame(a, o));
+  AF({ highlight: [i], msg: `刪除索引 ${i} 的 ${v}。` });
+  const last = a.length - 1;
+  if (i === last) { a.pop(); AF({ msg: `是最後一個,直接移除 ✓` }); return { frames: f, result: a }; }
+  AF({ swap: [i, last], msg: `把末端 ${a[last]} 移到索引 ${i},移除原節點。` });
+  a[i] = a[last]; a.pop();
+  const p = (i - 1) >> 1;
+  if (i > 0 && violates(a[p], a[i])) { AF({ highlight: [i], msg: `新值與父衝突 → 上浮。` }); let j = i; while (j > 0) { const pp = (j - 1) >> 1; AF({ highlight: [j, pp], msg: `與父 ${a[pp]} 比較。` }); if (violates(a[pp], a[j])) { AF({ swap: [j, pp], msg: `交換。` }); [a[j], a[pp]] = [a[pp], a[j]]; j = pp; } else break; } AF({ doneIdx: [j], msg: `刪除完成 ✓` }); }
+  else { AF({ highlight: [i], msg: `對索引 ${i} 下沉。` }); siftDownFrames(a, i, a.length, f); AF({ msg: `刪除 ${v} 完成 ✓` }); }
+  return { frames: f, result: a };
+}
+function rebuildArray(values, insGen) { let na = emptyArrFor(mode); values.forEach(v => { na = insGen(na, v).result; }); return na; }
+function genArrayDeleteExtreme(base, which) {
+  const f = [], a = base.slice(), n = a.length - 1, AF = o => f.push(makeFrame(a, Object.assign({ idxBase: 1 }, o)));
+  if (n < 2) { AF({ msg: '堆積為空。' }); return { frames: f, result: a }; }
+  const mi = which === 'min' ? 2 : (n >= 3 ? 3 : 2);
+  const val = a[mi], label = which === 'min' ? '最小值' : '最大值';
+  AF({ highlight: [mi], msg: `${label}位於位置 ${mi}:取出 ${val}。` });
+  const rest = []; for (let i = 2; i < a.length; i++) if (i !== mi && a[i] != null) rest.push(a[i]);
+  const insGen = mode === 'deap' ? genDeapInsert : genSmmhInsert;
+  const na = rebuildArray(rest, insGen);
+  f.push(makeFrame(na, { idxBase: 1, msg: `移除${label} ${val} 後,重建 ${mode === 'deap' ? 'DEAP' : 'SMMH'} ✓(此結構的刪除以重建呈現)` }));
+  return { frames: f, result: na };
+}
+
+function treeInsertGen(root, v) {
+  return mode === 'avl' ? genAVLInsert(root, v) : mode === 'rbt' ? genRBInsert(root, v) : genBSTInsert(root, v);
+}
+
+// ============================================================ B-Tree（多鍵節點,最小分支度 t)
+function btNode(keys, children, leaf, parent) { return { id: ++nodeSeq, keys, children, leaf, parent }; }
+function btSnap(nodeState, hlNode, hlKey, msg) {
+  const nodes = [];
+  (function walk(n) { if (!n) return; nodes.push({ id: n.id, keys: n.keys.slice(), childIds: n.children.map(c => c.id), leaf: n.leaf }); n.children.forEach(walk); })(bt);
+  let hasCmp = false, hasSplit = false;
+  for (const k in nodeState) { if (nodeState[k] === 1) hasCmp = true; if (nodeState[k] === 3) hasSplit = true; }
+  return { kind: 'btree', nodes, rootId: bt ? bt.id : null, nodeState: nodeState || {}, hlNode: (hlNode == null ? -1 : hlNode), hlKey: (hlKey == null ? -1 : hlKey), msg: msg || '', hasCmp, hasSplit };
+}
+function genBTInsert(v) {
+  const f = [], t = btT, MAX = 2 * t - 1;
+  if (!bt) { bt = btNode([v], [], true, null); f.push(btSnap({ [bt.id]: 4 }, -1, -1, `建立根節點,插入 ${v} ✓`)); return f; }
+  let cur = bt;
+  while (true) {
+    let i = 0;
+    while (i < cur.keys.length && v > cur.keys[i]) { f.push(btSnap({ [cur.id]: 1 }, cur.id, i, `在節點比較:${v} > ${cur.keys[i]},往右`)); i++; }
+    if (i < cur.keys.length && v === cur.keys[i]) { f.push(btSnap({ [cur.id]: 1 }, cur.id, i, `${v} 已存在,忽略`)); return f; }
+    f.push(btSnap({ [cur.id]: 1 }, cur.id, (i < cur.keys.length ? i : -1), cur.leaf ? `到葉節點,插入位置 ${i}` : `${v} < ${cur.keys[i]},往子節點 ${i}`));
+    if (cur.leaf) break;
+    cur = cur.children[i];
+  }
+  let pos = 0; while (pos < cur.keys.length && cur.keys[pos] < v) pos++;
+  cur.keys.splice(pos, 0, v);
+  f.push(btSnap({ [cur.id]: 4 }, cur.id, pos, `把 ${v} 插入葉節點`));
+  let nd = cur;
+  while (nd.keys.length > MAX) {
+    f.push(btSnap({ [nd.id]: 3 }, -1, -1, `節點溢位(${nd.keys.length} > ${MAX} 鍵)→ 分裂`));
+    const mid = t - 1, median = nd.keys[mid];
+    const right = btNode(nd.keys.slice(mid + 1), nd.leaf ? [] : nd.children.slice(mid + 1), nd.leaf, nd.parent);
+    if (!nd.leaf) right.children.forEach(c => c.parent = right);
+    nd.keys = nd.keys.slice(0, mid); nd.children = nd.leaf ? [] : nd.children.slice(0, mid + 1);
+    if (nd.parent === null) {
+      const nr = btNode([median], [nd, right], false, null); nd.parent = nr; right.parent = nr; bt = nr;
+      f.push(btSnap({ [nr.id]: 4 }, nr.id, 0, `根分裂:中鍵 ${median} 升為新根,樹高 +1`)); nd = nr;
+    } else {
+      const p = nd.parent, idx = p.children.indexOf(nd);
+      p.keys.splice(idx, 0, median); p.children.splice(idx + 1, 0, right); right.parent = p;
+      f.push(btSnap({ [p.id]: 4, [right.id]: 4 }, p.id, idx, `中鍵 ${median} 上移到父節點`)); nd = p;
+    }
+  }
+  f.push(btSnap({}, -1, -1, `插入 ${v} 完成 ✓`)); return f;
+}
+function genBTSearch(v) {
+  const f = []; if (!bt) { f.push(btSnap({}, -1, -1, '樹為空')); return f; }
+  let cur = bt;
+  while (cur) {
+    let i = 0;
+    while (i < cur.keys.length && v > cur.keys[i]) { f.push(btSnap({ [cur.id]: 1 }, cur.id, i, `${v} > ${cur.keys[i]},往右`)); i++; }
+    if (i < cur.keys.length && v === cur.keys[i]) { f.push(btSnap({ [cur.id]: 5 }, cur.id, i, `找到 ${v} ✓`)); return f; }
+    if (cur.leaf) { f.push(btSnap({ [cur.id]: 1 }, cur.id, -1, `到葉節點,找不到 ${v} ✗`)); return f; }
+    f.push(btSnap({ [cur.id]: 1 }, cur.id, (i < cur.keys.length ? i : -1), `往子節點 ${i}`));
+    cur = cur.children[i];
+  }
+  f.push(btSnap({}, -1, -1, `找不到 ${v}`)); return f;
+}
+function genBTTraverse() {
+  const f = []; if (!bt) { f.push(btSnap({}, -1, -1, '空')); return f; }
+  const order = [];
+  (function io(n) { if (!n) return; for (let i = 0; i < n.keys.length; i++) { if (!n.leaf) io(n.children[i]); order.push({ id: n.id, k: i, v: n.keys[i] }); } if (!n.leaf) io(n.children[n.keys.length]); })(bt);
+  const seq = [];
+  order.forEach(o => { seq.push(o.v); f.push(btSnap({ [o.id]: 1 }, o.id, o.k, `中序走訪:${o.v}  序列 = [ ${seq.join(', ')} ]`)); });
+  f.push(btSnap({}, -1, -1, `中序走訪完成:[ ${seq.join(', ')} ] ✓`)); return f;
+}
+function btKeys() { const out = []; (function io(n) { if (!n) return; for (let i = 0; i < n.keys.length; i++) { if (!n.leaf) io(n.children[i]); out.push(n.keys[i]); } if (!n.leaf) io(n.children[n.keys.length]); })(bt); return out; }
+function seqBTInsert(vals) { stopPlay(); let all = []; for (const v of vals) all = all.concat(genBTInsert(v)); frames = all; frameIdx = 0; render(); }
+
+// ============================================================ 走訪
+function traversalOrder(kind, rootKey, leftOf, rightOf, hasVal) {
+  const out = [];
+  if (kind === 'level') {
+    const q = [rootKey];
+    while (q.length) { const k = q.shift(); if (k == null) continue; if (hasVal(k)) out.push(k); const l = leftOf(k), r = rightOf(k); if (l != null) q.push(l); if (r != null) q.push(r); }
+    return out;
+  }
+  (function rec(k) {
+    if (k == null) return; const l = leftOf(k), r = rightOf(k);
+    if (kind === 'pre' && hasVal(k)) out.push(k);
+    rec(l);
+    if (kind === 'in' && hasVal(k)) out.push(k);
+    rec(r);
+    if (kind === 'post' && hasVal(k)) out.push(k);
+  })(rootKey);
+  return out;
+}
+function doTraverse(kind) {
+  stopPlay(); pathTargetKey = null;
+  if (mode === 'btree') { setOp('btTraverse'); frames = genBTTraverse(); frameIdx = 0; render(); autoPlay(); return; }
+  setOp('traverse_' + kind);
+  const label = { pre: '前序 Pre-order', in: '中序 In-order', post: '後序 Post-order', level: '層序 Level-order' }[kind];
+  let order, valOf, mk, finalFrame;
+  if (isArrayMode(mode)) {
+    const ib = idxBaseFor(mode), a = heap, root = ib === 1 ? 1 : 0;
+    const ok = c => c < a.length && a[c] != null;
+    const L = k => { const c = ib === 1 ? 2 * k : 2 * k + 1; return ok(c) ? c : null; };
+    const R = k => { const c = ib === 1 ? 2 * k + 1 : 2 * k + 2; return ok(c) ? c : null; };
+    order = traversalOrder(kind, root, L, R, k => a[k] != null);
+    valOf = k => a[k];
+    mk = (cur, vis, msg) => makeFrame(a, { idxBase: ib, minmax: mode === 'minmax', highlight: [cur], doneIdx: vis, msg });
+    finalFrame = (vis, msg) => makeFrame(a, { idxBase: ib, minmax: mode === 'minmax', doneIdx: vis, msg });
+  } else {
+    const idVal = {}, L = {}, R = {};
+    (function w(n) { if (!n) return; idVal[n.id] = n.val; L[n.id] = n.left ? n.left.id : null; R[n.id] = n.right ? n.right.id : null; w(n.left); w(n.right); })(treeRoot);
+    const root = treeRoot ? treeRoot.id : null;
+    order = traversalOrder(kind, root, k => L[k], k => R[k], () => true);
+    valOf = k => idVal[k];
+    mk = (cur, vis, msg) => { const st = {}; vis.forEach(id => st[id] = 'done'); st[cur] = 'cmp'; return treeFrame(treeRoot, st, msg); };
+    finalFrame = (vis, msg) => { const st = {}; vis.forEach(id => st[id] = 'done'); return treeFrame(treeRoot, st, msg); };
+  }
+  if (!order.length) { flashMsg('目前是空的。'); return; }
+  const frs = [], seq = [];
+  order.forEach((k, t) => { seq.push(valOf(k)); frs.push(mk(k, order.slice(0, t), `${label}:走訪 ${valOf(k)}。序列 = [ ${seq.join(', ')} ]`)); });
+  frs.push(finalFrame(order, `${label} 完成:[ ${seq.join(', ')} ] ✓`));
+  frames = frs; frameIdx = 0; render(); autoPlay();
+}
+
+// ============================================================ 操作觸發
+function loadGen(g) { stopPlay(); pathTargetKey = null; frames = g.frames; if ('result' in g) heap = g.result; if ('root' in g) treeRoot = g.root; frameIdx = 0; render(); }
+function parseBulk() { const r = $('bulkVal').value.trim(); return r ? r.split(/[\s,]+/).map(Number).filter(n => !isNaN(n)) : []; }
+function currentValues() {
+  if (mode === 'btree') return btKeys();
+  if (isArrayMode(mode)) { const ib = idxBaseFor(mode); return heap.filter((v, i) => v != null && (ib === 0 || i >= 2)); }
+  const out = [], q = treeRoot ? [treeRoot] : [];
+  while (q.length) { const n = q.shift(); out.push(n.val); if (n.left) q.push(n.left); if (n.right) q.push(n.right); }
+  return out;
+}
+function seqArrayInsert(vals) { stopPlay(); pathTargetKey = null; let all = [], a = heap.slice(); for (const v of vals) { const g = arrayInsertGen(a, v); all = all.concat(g.frames); a = g.result; } heap = a; frames = all; frameIdx = 0; render(); }
+function seqTreeInsert(vals) { stopPlay(); pathTargetKey = null; let all = [], r = treeRoot; for (const v of vals) { const g = treeInsertGen(r, v); all = all.concat(g.frames); r = g.root; } treeRoot = r; frames = all; frameIdx = 0; render(); }
+function rebuildFromValues(vals) {
+  if (mode === 'btree') { bt = null; seqBTInsert(vals); }
+  else if (isHeap()) { heap = []; loadGen(genBuildHeap(vals)); }
+  else if (isArrayMode(mode)) { heap = emptyArrFor(mode); seqArrayInsert(vals); }
+  else { treeRoot = null; seqTreeInsert(vals); }
+  autoPlay();
+}
+
+function doInsert() {
+  const v = parseFloat($('singleVal').value); if (isNaN(v)) { flashMsg('請輸入有效數字。'); return; }
+  setOp(mode === 'btree' ? 'btInsert' : insertOpFor(mode));
+  if (mode === 'btree') { stopPlay(); pathTargetKey = null; frames = genBTInsert(v); frameIdx = 0; render(); }
+  else if (isArrayMode(mode)) { if (!heap.length) heap = emptyArrFor(mode); loadGen(arrayInsertGen(heap, v)); }
+  else loadGen(treeInsertGen(treeRoot, v));
+  $('singleVal').value = ''; autoPlay();
+}
+function doBuild() {
+  const vals = parseBulk(), base = vals.length ? vals : currentValues();
+  if (!base.length) { flashMsg('請先在批次欄輸入數值。'); return; }
+  setOp(mode === 'btree' ? 'btInsert' : isHeap() ? 'buildHeap' : insertOpFor(mode));
+  rebuildFromValues(base);
+}
+function doBulkInsert() {
+  const vals = parseBulk(); if (!vals.length) { flashMsg('請在批次欄輸入數值。'); return; }
+  setOp(mode === 'btree' ? 'btInsert' : insertOpFor(mode));
+  if (mode === 'btree') seqBTInsert(vals);
+  else if (isArrayMode(mode)) { if (!heap.length) heap = emptyArrFor(mode); seqArrayInsert(vals); } else seqTreeInsert(vals);
+  autoPlay();
+}
+function doExtract() { if (!heap.length) { flashMsg('堆積為空。'); return; } setOp('heapExtract'); loadGen(genExtract(heap)); autoPlay(); }
+function doHeapSort() { const base = heap.length ? heap : parseBulk(); if (!base.length) { flashMsg('請先建立堆積或輸入數值。'); return; } setOp('heapSort'); loadGen(genHeapSort(base)); autoPlay(); }
+function doSearch() {
+  const v = parseFloat($('treeVal').value); if (isNaN(v)) { flashMsg('請輸入要搜尋的數字。'); return; }
+  if (mode === 'btree') { setOp('btSearch'); stopPlay(); pathTargetKey = null; frames = genBTSearch(v); frameIdx = 0; render(); autoPlay(); return; }
+  setOp('bstSearch'); loadGen(genBSTSearch(treeRoot, v)); autoPlay();
+}
+function doDelete() {
+  if (mode === 'btree') { flashMsg('B-Tree 刪除(借鍵/合併)尚未實作。'); return; }
+  const v = parseFloat($('treeVal').value); if (isNaN(v)) { flashMsg('請輸入要刪除的數字。'); return; }
+  setOp(deleteOpFor(mode));
+  loadGen(treeDeleteGen(treeRoot, v)); autoPlay();
+}
+function doMMDeleteMin() { if (!heap.length) { flashMsg('堆積為空。'); return; } setOp('minmaxDelete'); loadGen(genMinMaxDeleteMin(heap)); autoPlay(); }
+function doMMDeleteMax() { if (!heap.length) { flashMsg('堆積為空。'); return; } setOp('minmaxDelete'); loadGen(genMinMaxDeleteMax(heap)); autoPlay(); }
+function doAdvDelMin() { if (heap.length <= 2) { flashMsg('堆積為空。'); return; } setOp('arrRebuildDelete'); loadGen(genArrayDeleteExtreme(heap, 'min')); autoPlay(); }
+function doAdvDelMax() { if (heap.length <= 2) { flashMsg('堆積為空。'); return; } setOp('arrRebuildDelete'); loadGen(genArrayDeleteExtreme(heap, 'max')); autoPlay(); }
+function doArrFind() { const v = parseFloat($('arrFindV').value); if (isNaN(v)) { flashMsg('請輸入要查找的數字。'); return; } if (!heap.length) { flashMsg('堆積為空。'); return; } setOp('arrFind'); loadGen(genFindArray(heap, v)); autoPlay(); }
+function doHeapModify() {
+  const o = parseFloat($('hpA').value), nv = parseFloat($('hpB').value);
+  if (isNaN(o) || isNaN(nv)) { flashMsg('請輸入「目標值」與「新值」。'); return; }
+  setOp('heapModify');
+  loadGen(genHeapModify(heap, o, nv)); autoPlay();
+}
+function doHeapDeleteAt() { const o = parseFloat($('hpA').value); if (isNaN(o)) { flashMsg('請在「目標值」輸入要刪除的數字。'); return; } setOp('heapDeleteAt'); loadGen(genHeapDeleteAt(heap, o)); autoPlay(); }
+function loadFramesOnly(g) { stopPlay(); pathTargetKey = null; frames = g.frames; frameIdx = 0; render(); }
+function sortInput() {
+  let v = parseBulk();
+  if (!v.length) { v = Array.from({ length: 14 }, () => Math.floor(Math.random() * 99) + 1); $('bulkVal').value = v.join(', '); }
+  return v;
+}
+function doSort(name) {
+  const base = sortInput(); if (!base.length) { flashMsg('請輸入數值或讓系統隨機產生。'); return; }
+  if ((name === 'counting' || name === 'radix') && base.some(v => v < 0 || !Number.isInteger(v))) { flashMsg('計數 / 基數排序需要非負整數。'); return; }
+  setOp('sort' + name.charAt(0).toUpperCase() + name.slice(1));
+  loadFramesOnly(SORTGEN[name](base)); autoPlay();
+}
+function doRandom() {
+  const n = 7 + Math.floor(Math.random() * 5), s = new Set();
+  while (s.size < n) s.add(Math.floor(Math.random() * 99) + 1);
+  const vals = [...s]; $('bulkVal').value = vals.join(', '); rebuildFromValues(vals);
+}
+function resetAll() { stopPlay(); pathTargetKey = null; heap = []; treeRoot = null; bt = null; frames = []; frameIdx = 0; render(); setStatus('就緒', '已清空。'); }
+
+// ============================================================ 測資情境
+function fillScenario(kind) {
+  const n = 16; let vals;
+  const distinct = () => { const s = new Set(); while (s.size < n) s.add(Math.floor(Math.random() * 99) + 1); return [...s]; };
+  if (kind === 'sorted') vals = distinct().sort((a, b) => a - b);
+  else if (kind === 'reverse') vals = distinct().sort((a, b) => b - a);
+  else if (kind === 'nearly') { vals = distinct().sort((a, b) => a - b); for (let k = 0; k < 2; k++) { const i = Math.floor(Math.random() * (n - 1)); [vals[i], vals[i + 1]] = [vals[i + 1], vals[i]]; } }
+  else if (kind === 'dup') vals = Array.from({ length: n }, () => Math.floor(Math.random() * 5) + 1);
+  else vals = Array.from({ length: n }, () => Math.floor(Math.random() * 99) + 1);
+  $('bulkVal').value = vals.join(', ');
+  const label = { sorted: '已排序', reverse: '逆序', nearly: '近乎有序', dup: '大量重複', random: '隨機' }[kind];
+  flashMsg(`已產生「${label}」測資(${n} 筆)→ 按排序鈕或「建立」觀察。`);
+}
+
+// ============================================================ 不變性檢視
+function inorderTree(n, out) { if (!n) return; inorderTree(n.left, out); out.push(n.val); inorderTree(n.right, out); }
+function rbBlackHeight(n) { if (!n) return 1; const l = rbBlackHeight(n.left), r = rbBlackHeight(n.right); if (l < 0 || r < 0 || l !== r) return -1; return l + (n.color === 'black' ? 1 : 0); }
+function rbNoRedRed(n) { if (!n) return true; if (n.color === 'red' && ((n.left && n.left.color === 'red') || (n.right && n.right.color === 'red'))) return false; return rbNoRedRed(n.left) && rbNoRedRed(n.right); }
+function maxAbsBF(n) { if (!n) return 0; return Math.max(Math.abs(bf(n)), maxAbsBF(n.left), maxAbsBF(n.right)); }
+function doInspect() {
+  let r;
+  if (mode === 'btree') {
+    if (!bt) { setStatus('不變性', 'B-Tree 為空。'); return; }
+    const ks = btKeys(), sorted = ks.slice().sort((a, b) => a - b);
+    let leafD = -1, ok = true, badc = false;
+    (function go(nd, d) { if (!nd) return; if (nd.leaf) { if (leafD < 0) leafD = d; else if (leafD !== d) ok = false; } if (nd !== bt && (nd.keys.length < btT - 1 || nd.keys.length > 2 * btT - 1)) badc = true; nd.children.forEach(c => go(c, d + 1)); })(bt, 0);
+    r = `B-Tree(t=${btT}):葉節點同深 ${ok ? '✓' : '✗'} ・ 每節點鍵數 ∈ [${btT - 1}, ${2 * btT - 1}] ${badc ? '✗' : '✓'} ・ 中序遞增 ${JSON.stringify(ks) === JSON.stringify(sorted) ? '✓' : '✗'}(共 ${ks.length} 鍵)`;
+  } else if (mode === 'rbt') {
+    if (!treeRoot) { setStatus('不變性', '紅黑樹為空。'); return; }
+    const bh = rbBlackHeight(treeRoot);
+    r = `紅黑樹:根為黑 ${treeRoot.color === 'black' ? '✓' : '✗'} ・ 無「紅-紅」${rbNoRedRed(treeRoot) ? '✓' : '✗'} ・ 各路徑黑高度一致 ${bh > 0 ? `✓(黑高度 = ${bh})` : '✗'}`;
+  } else if (mode === 'avl') {
+    if (!treeRoot) { setStatus('不變性', 'AVL 為空。'); return; }
+    const m = maxAbsBF(treeRoot); const io = []; inorderTree(treeRoot, io);
+    r = `AVL:所有節點 |BF| ≤ 1 ${m <= 1 ? `✓(最大 |BF| = ${m})` : `✗(出現 |BF| = ${m})`} ・ 中序遞增 ${JSON.stringify(io) === JSON.stringify(io.slice().sort((a, b) => a - b)) ? '✓' : '✗'}`;
+  } else if (mode === 'bst') {
+    if (!treeRoot) { setStatus('不變性', 'BST 為空。'); return; }
+    const io = []; inorderTree(treeRoot, io); const ok = io.every((v, i) => i === 0 || v > io[i - 1]);
+    r = `BST:中序走訪嚴格遞增 ${ok ? '✓' : '✗'} → 左子樹 < 節點 < 右子樹(共 ${io.length} 節點)`;
+  } else if (mode === 'minmax' || mode === 'deap' || mode === 'smmh') {
+    const els = currentValues();
+    if (!els.length) { setStatus('不變性', '結構為空。'); return; }
+    r = `${MODE_NAMES[mode]}:元素 ${els.length} 個 ・ 最小值 = ${Math.min(...els)} ・ 最大值 = ${Math.max(...els)}(此結構可在 O(1) 取得兩端)`;
+  } else { // max / min heap
+    if (!heap.length) { setStatus('不變性', '堆積為空。'); return; }
+    let ok = true, viol = '';
+    for (let i = 0; i < heap.length && ok; i++) for (const c of [2 * i + 1, 2 * i + 2]) if (c < heap.length && violates(heap[i], heap[c])) { ok = false; viol = `索引${i}(${heap[i]}) 與子 ${c}(${heap[c]})`; }
+    const top = heapType === 'max' ? '最大值' : '最小值';
+    r = `${heapType === 'max' ? '最大堆' : '最小堆'}:父${heapType === 'max' ? ' ≥ ' : ' ≤ '}子 全部成立 ${ok ? '✓' : '✗ ' + viol} ・ ${top}在根 = ${heap[0]}(共 ${heap.length} 元素)`;
+  }
+  stopPlay(); setStatus('不變性', r);
+}
+
+// ============================================================ 範例
+const EXAMPLES = [
+  { name: '最大堆 Max-Heap', mode: 'max', data: [4, 10, 3, 5, 1, 2, 8, 7] },
+  { name: '最小堆 Min-Heap', mode: 'min', data: [9, 4, 7, 1, 2, 6, 3, 8] },
+  { name: 'Min-Max Heap 範例', mode: 'minmax', data: [10, 40, 30, 5, 35, 25, 8, 50] },
+  { name: 'DEAP 雙端堆範例', mode: 'deap', data: [10, 5, 20, 3, 15, 30, 1, 25] },
+  { name: 'SMMH 範例', mode: 'smmh', data: [20, 10, 30, 5, 40, 15, 25, 8] },
+  { name: 'BST — 平衡範例', mode: 'bst', data: [50, 30, 70, 20, 40, 60, 80] },
+  { name: 'BST — 排序輸入(退化成鏈)', mode: 'bst', data: [10, 20, 30, 40, 50, 60] },
+  { name: 'AVL — LL 右旋', mode: 'avl', data: [30, 20, 10] },
+  { name: 'AVL — RR 左旋', mode: 'avl', data: [10, 20, 30] },
+  { name: 'AVL — LR 雙旋', mode: 'avl', data: [30, 10, 20] },
+  { name: 'AVL — RL 雙旋', mode: 'avl', data: [10, 30, 20] },
+  { name: 'AVL — 連續旋轉綜合', mode: 'avl', data: [10, 20, 30, 40, 50, 25] },
+  { name: '紅黑樹 — 重塗色+旋轉', mode: 'rbt', data: [10, 20, 30, 15, 25, 5, 1, 35] },
+  { name: '紅黑樹 — 遞增插入', mode: 'rbt', data: [1, 2, 3, 4, 5, 6, 7] },
+  { name: 'B-Tree — 連續分裂', mode: 'btree', data: [10, 20, 5, 6, 12, 30, 7, 17, 3, 8, 25, 14, 28, 1] },
+  { name: '大資料 15 筆(隨機 BST)', mode: 'bst', data: 'RANDOM15' },
+];
+function buildExampleSelect() { const sel = $('examplesSel'); EXAMPLES.forEach((ex, i) => { const o = document.createElement('option'); o.value = i; o.textContent = ex.name; sel.appendChild(o); }); }
+function applyExample() {
+  const ex = EXAMPLES[+$('examplesSel').value]; let data = ex.data;
+  if (data === 'RANDOM15') { const s = new Set(); while (s.size < 15) s.add(Math.floor(Math.random() * 99) + 1); data = [...s]; }
+  selectStructure(ex.mode); heap = emptyArrFor(ex.mode); treeRoot = null;
+  $('bulkVal').value = data.join(', '); rebuildFromValues(data);
+}
+
+// ============================================================ 結構切換 / UI
+const HINTS = {
+  max: '提示:索引 i 的左子 2i+1、右子 2i+2、父 ⌊(i−1)/2⌋。插入放末端再上浮;取出頂端把末端補到根再下沉。',
+  min: '提示:索引 i 的左子 2i+1、右子 2i+2、父 ⌊(i−1)/2⌋。最小堆中父節點 ≤ 子節點。',
+  minmax: '提示:Min-Max Heap 偶數層(0,2,…)為 min 層、奇數層為 max 層。min 層節點 ≤ 其所有子孫;max 層 ≥ 其所有子孫。最小值在根、最大值在兩個子節點之一。',
+  deap: '提示:DEAP 雙端堆積,根(位置1)為空。左子樹是 min-heap、右子樹是 max-heap;每個 min 節點 ≤ 其對應的 max 節點。最小值在 min 根、最大值在 max 根。',
+  smmh: '提示:SMMH 對稱最小最大堆,根(位置1)為空。每對兄弟「左 ≤ 右」,且「祖父的左子 ≤ 節點 ≤ 祖父的右子」。最小值與最大值都在最上層。',
+  bst: '提示:BST 左子樹皆小於、右子樹皆大於節點;中序走訪即由小到大。',
+  avl: '提示:AVL 是自我平衡 BST,任一節點左右子樹高度差(BF)≤1,超過用旋轉修正。',
+  rbt: '提示:紅黑樹 — 節點為紅或黑;根為黑;紅節點的子皆黑;每條根到葉路徑的黑節點數相同。靠重塗色與旋轉維持近似平衡。',
+  btree: '提示:B-Tree(最小分支度 t)— 每節點存 t−1 ~ 2t−1 個「已排序的鍵」,有 k 個鍵就有 k+1 個子節點;所有葉節點在同一層。插入到葉,若溢位(超過 2t−1 鍵)就把中鍵往上推、節點一分為二,可能一路分裂到根使樹長高。',
+};
+function selectStructure(m) {
+  mode = m; if (m === 'min') heapType = 'min'; if (m === 'max') heapType = 'max';
+  document.querySelectorAll('#structSel button').forEach(b => b.classList.toggle('active', b.dataset.mode === m));
+  updateControls();
+}
+function onStructBtn(m) {
+  const vals = currentValues(); selectStructure(m); heap = emptyArrFor(m); treeRoot = null; bt = null; pathTargetKey = null;
+  if (vals.length) rebuildFromValues(vals); else { frames = []; frameIdx = 0; render(); }
+}
+document.querySelectorAll('#structSel button').forEach(b => b.onclick = () => onStructBtn(b.dataset.mode));
+function onBtOrder() {
+  const vals = btKeys(); btT = parseInt($('btOrder').value); bt = null;
+  $('modeTitle').textContent = `目前模式 — B-Tree(t=${btT})`;
+  if (vals.length) { setOp('btInsert'); seqBTInsert(vals); autoPlay(); } else { frames = []; frameIdx = 0; render(); }
+}
+$('btOrder').addEventListener('change', onBtOrder);
+
+function updateControls() {
+  const arrM = isArrayMode(mode), heapM = isHeap(), btM = mode === 'btree';
+  $('heapOps').style.display = heapM ? '' : 'none';
+  $('mmOps').style.display = mode === 'minmax' ? '' : 'none';
+  $('advOps').style.display = (mode === 'deap' || mode === 'smmh') ? '' : 'none';
+  $('heapMod').style.display = heapM ? '' : 'none';
+  $('findRow').style.display = arrM ? '' : 'none';
+  $('treeOps').style.display = (arrM || btM) ? (btM ? '' : 'none') : '';
+  $('btOps').style.display = btM ? '' : 'none';
+  const showNote = (mode === 'deap' || mode === 'smmh');
+  $('arrInfo').style.display = showNote ? '' : 'none';
+  if (showNote) $('arrInfo').textContent = 'DEAP/SMMH 的刪除以「移除後重建」呈現(結果為合法結構)。';
+  $('btnDelete').disabled = btM; $('btnDelete').title = btM ? 'B-Tree 刪除尚未實作' : '';
+  $('btnBuild').textContent = heapM ? '建堆 Build Heap(逐步)' : '建立 Build(依序插入)';
+  $('arrTitle').textContent = btM ? '鍵序列 (Keys)' : arrM ? '陣列表示 (Array)' : '中序走訪 (In-order)';
+  $('hint').textContent = HINTS[mode];
+  $('modeTitle').textContent = '目前模式 — ' + (btM ? `B-Tree(t=${btT})` : (MODE_NAMES[mode] || mode));
+  buildLegend();
+}
+const MODE_NAMES = { max: '最大堆 Max-Heap', min: '最小堆 Min-Heap', minmax: 'Min-Max Heap', deap: 'DEAP 雙端堆', smmh: 'SMMH', bst: '二元搜尋樹 BST', avl: 'AVL 平衡樹', rbt: '紅黑樹 RB-Tree', btree: 'B-Tree' };
+function updateSpeedMs() { const d = 1520 - parseInt($('speed').value); $('speedMs').textContent = `每步 ≈ ${d} ms`; }
+function buildLegend() {
+  const items = [['#2d6cdf', '一般'], ['#9b6cff', '新節點'], ['#ffb74f', '比較'], ['#2bb7c4', '走訪/路徑'], ['#ff5d6c', '交換/旋轉'], ['#34c98a', '完成']];
+  if (mode === 'rbt') { items.push(['#d23b49', '紅節點'], ['#2a3346', '黑節點']); }
+  $('legend').innerHTML = items.map(([c, t]) => `<span><i class="dot" style="background:${c}"></i>${t}</span>`).join('');
+}
+
+// ============================================================ 播放控制
+function autoPlay() { if (frames.length > 1) startPlay(); }
+function togglePlay() { playing ? stopPlay() : startPlay(); }
+function startPlay() { if (frameIdx >= frames.length - 1) frameIdx = 0; playing = true; $('playBtn').textContent = '❚❚'; scheduleNext(); }
+function stopPlay() { playing = false; $('playBtn').textContent = '▶'; clearTimeout(playTimer); }
+function scheduleNext() { if (!playing) return; const d = 1520 - parseInt($('speed').value); playTimer = setTimeout(() => { if (quizGate()) return; if (frameIdx < frames.length - 1) { showFrame(frameIdx + 1, true); scheduleNext(); } else stopPlay(); }, d); }
+function stepNext() { stopPlay(); if (quizGate()) return; if (frameIdx < frames.length - 1) showFrame(frameIdx + 1, true); }
+function stepPrev() { stopPlay(); if (frameIdx > 0) showFrame(frameIdx - 1, true); }
+function stepFirst() { stopPlay(); showFrame(0, false); }
+function stepLast() { stopPlay(); showFrame(Math.max(0, frames.length - 1), false); }
+
+// ============================================================ 繪圖
+const LEVEL_H = 84, NODE_DX = 52, LAY_MARGIN = 44, LAY_TOP = 58, LAY_BOTTOM = 96;
+let lastLayout = null, animRAF = null, pulseRAF = null, lastSortArr = null;
+function resize() { const w = canvas.parentElement; canvas.width = w.clientWidth; canvas.height = w.clientHeight; render(); }
+window.addEventListener('resize', resize);
+function cssVar(n) { return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+function line(a, b) { ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); }
+function drawEmpty() { ctx.fillStyle = cssVar('--muted'); ctx.font = '16px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('目前是空的 — 套用範例或插入數值', canvas.width / 2, canvas.height / 2 - 40); }
+
+function currentFrame() {
+  if (frames.length) return frames[Math.min(frameIdx, frames.length - 1)];
+  if (mode === 'btree') return btSnap({}, -1, -1, '');
+  if (isArrayMode(mode)) return makeFrame(heap, { idxBase: idxBaseFor(mode), minmax: mode === 'minmax' });
+  return treeFrame(treeRoot, {}, '');
+}
+function heapNodeColor(i, fr) {
+  if (fr.swap && (fr.swap[0] === i || fr.swap[1] === i)) return '--node-swap';
+  if (fr.doneIdx.includes(i)) return '--node-done';
+  if (fr.highlight.includes(i)) return '--node-cmp';
+  if (fr.newIdx === i) return '--node-new';
+  return '--node';
+}
+function stateVar(s) { return ({ new: '--node-new', cmp: '--node-cmp', visit: '--node-visit', swap: '--node-swap', done: '--node-done' })[s] || '--node'; }
+
+// 把 frame 轉成固定間距版面:節點水平間距 NODE_DX、層高 LEVEL_H 都固定,
+// 只有當整棵樹超出畫面時才整體等比縮小(永不放大)。
+function computeLayout(fr) {
+  const items = [], edges = [];
+  if (fr.kind === 'tree') {
+    const isRB = mode === 'rbt';
+    fr.nodes.forEach(n => {
+      const st = fr.state[n.id] || 'normal';
+      items.push({ key: n.id, val: n.val, depth: n.depth, inorder: n.inorder, empty: false, dashed: false,
+        fill: isRB ? cssVar(n.color === 'black' ? '--rb-black' : '--rb-red') : cssVar(stateVar(st)),
+        ring: st !== 'normal' ? cssVar(stateVar(st)) : null,
+        pulse: (st === 'cmp' || st === 'swap'), halo: cssVar(stateVar(st)),
+        topLabel: mode === 'avl' ? `bf ${n.bf}` : null });
+    });
+    fr.edges.forEach(e => edges.push(e));
+  } else {
+    const a = fr.arr, ib = fr.idxBase || 0, last = a.length - 1, start = ib === 1 ? 1 : 0;
+    const idxs = [];
+    for (let i = start; i <= last; i++) { if (ib === 1 && i !== 1 && a[i] == null) continue; idxs.push(i); }
+    if (idxs.length) {
+      const present = new Set(idxs);
+      const lc = i => ib === 1 ? 2 * i : 2 * i + 1, rc = i => ib === 1 ? 2 * i + 1 : 2 * i + 2;
+      const inorder = {}; let ord = 0;
+      (function dfs(i) { if (i == null || !present.has(i)) return; dfs(lc(i)); inorder[i] = ord++; dfs(rc(i)); })(ib === 1 ? 1 : 0);
+      const depthOf = i => ib === 1 ? Math.floor(Math.log2(i)) : Math.floor(Math.log2(i + 1));
+      idxs.forEach(i => {
+        const empty = ib === 1 && i === 1;
+        const sw = fr.swap && (fr.swap[0] === i || fr.swap[1] === i), hi = fr.highlight.includes(i);
+        items.push({ key: i, val: a[i], depth: depthOf(i), inorder: inorder[i] != null ? inorder[i] : 0, empty, dashed: empty,
+          fill: empty ? cssVar('--panel2') : cssVar(heapNodeColor(i, fr)), ring: null,
+          pulse: (sw || hi) && !empty, halo: cssVar(sw ? '--node-swap' : '--node-cmp'),
+          topLabel: `[${i}]` + (fr.minmax && !empty ? (isMin(i) ? ' min' : ' max') : '') });
+        const p = ib === 1 ? (i >> 1) : ((i - 1) >> 1);
+        if (present.has(p)) edges.push([p, i]);
+      });
+    }
+  }
+  const byKey = {};
+  if (!items.length) return { nodes: items, edges, byKey };
+  const maxIn = Math.max(...items.map(d => d.inorder)), maxDp = Math.max(...items.map(d => d.depth));
+  const w = maxIn * NODE_DX, h = maxDp * LEVEL_H;
+  const availW = canvas.width - 2 * LAY_MARGIN, availH = canvas.height - LAY_TOP - LAY_BOTTOM;
+  let scale = 1;
+  if (w > availW && w > 0) scale = Math.min(scale, availW / w);
+  if (h > availH && h > 0) scale = Math.min(scale, availH / h);
+  const dx = NODE_DX * scale, lh = LEVEL_H * scale, R = Math.max(11, Math.min(20, 20 * scale));
+  const offX = (canvas.width - w * scale) / 2;
+  items.forEach(d => { d.x = offX + d.inorder * dx; d.y = LAY_TOP + d.depth * lh; d.r = R; byKey[d.key] = d; });
+  return { nodes: items, edges, byKey };
+}
+
+function drawNode(d, x, y, r, alpha, pulse) {
+  if (d.pulse && pulse != null && pulse > 0.01) {
+    ctx.globalAlpha = 0.55 * (1 - pulse) * alpha;
+    ctx.beginPath(); ctx.arc(x, y, r + 2 + pulse * 9, 0, Math.PI * 2);
+    ctx.lineWidth = 3; ctx.strokeStyle = d.halo || cssVar('--node-cmp'); ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+  ctx.globalAlpha = alpha;
+  ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
+  if (d.dashed) { ctx.fillStyle = d.fill; ctx.fill(); ctx.setLineDash([4, 4]); ctx.lineWidth = 2; ctx.strokeStyle = cssVar('--muted'); ctx.stroke(); ctx.setLineDash([]); }
+  else { ctx.fillStyle = d.fill; ctx.fill(); if (d.ring) { ctx.lineWidth = 4; ctx.strokeStyle = d.ring; } else { ctx.lineWidth = 2.5; ctx.strokeStyle = 'rgba(255,255,255,.28)'; } ctx.stroke(); }
+  if (!d.empty) { ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = `600 ${r * 0.72}px sans-serif`; ctx.fillText(String(d.val), x, y); }
+  if (d.topLabel && alpha > 0.6) { ctx.fillStyle = cssVar('--muted'); ctx.font = '10px sans-serif'; ctx.textAlign = 'center'; ctx.fillText(d.topLabel, x, y - r - 8); }
+  ctx.globalAlpha = 1;
+}
+function drawScene(layout, getPos, pulse) {
+  const gp = getPos || (d => ({ x: d.x, y: d.y, r: d.r, alpha: 1 }));
+  ctx.strokeStyle = cssVar('--line'); ctx.lineWidth = 2;
+  layout.edges.forEach(([a, b]) => { const da = layout.byKey[a], db = layout.byKey[b]; if (!da || !db) return; const pa = gp(da), pb = gp(db); ctx.globalAlpha = Math.min(pa.alpha, pb.alpha); line(pa, pb); });
+  ctx.globalAlpha = 1;
+  layout.nodes.forEach(d => { const p = gp(d); drawNode(d, p.x, p.y, p.r, p.alpha, pulse); });
+}
+function setRefs(layout) {
+  renderPositions = {}; renderParentMap = {};
+  layout.nodes.forEach(d => renderPositions[d.key] = { x: d.x, y: d.y, r: d.r });
+  layout.edges.forEach(([a, b]) => renderParentMap[b] = a);
+}
+function applyStatus(fr) {
+  if (frames.length) setStatus(`步驟 ${frameIdx + 1}/${frames.length}`, fr.msg || '');
+  else if (lastLayout && lastLayout.nodes.length) setStatus('就緒', '點任一節點可高亮從根到它的路徑。');
+  $('playBtn').textContent = playing ? '❚❚' : '▶';
+  updateMetrics();
+  renderPseudocode();
+}
+function frameIsSwap(fr) { if (fr.kind === 'btree') return fr.hasSplit; if (fr.kind === 'sort') return !!(fr.swap || fr.write); if (fr.kind === 'tree') { for (const k in fr.state) if (fr.state[k] === 'swap') return true; return false; } return !!fr.swap; }
+function frameIsCmp(fr) { if (fr.kind === 'btree') return fr.hasCmp && !fr.hasSplit; if (fr.kind === 'sort') return !!fr.cmp; if (fr.kind === 'tree') { for (const k in fr.state) if (fr.state[k] === 'cmp') return true; return false; } return (fr.highlight && fr.highlight.length > 0) && !fr.swap; }
+function updateMetrics() {
+  let cmp = 0, sw = 0;
+  if (frames.length) { const upto = Math.min(frameIdx, frames.length - 1); for (let i = 0; i <= upto; i++) { const fr = frames[i]; if (frameIsSwap(fr)) sw++; else if (frameIsCmp(fr)) cmp++; } }
+  $('mCmp').textContent = cmp; $('mSwap').textContent = sw;
+  $('mStep').textContent = frames.length ? `${Math.min(frameIdx + 1, frames.length)}/${frames.length}` : '—';
+  const cf = frames.length ? frames[Math.min(frameIdx, frames.length - 1)] : null;
+  if (cf && cf.kind === 'sort') {
+    $('mNodes').textContent = cf.arr.length; $('mH').textContent = '—'; $('mBig').textContent = SORTBIG[currentOp] || '—';
+  } else if (mode === 'btree') {
+    $('mNodes').textContent = btKeys().length;
+    $('mH').textContent = (cf && cf.nodes.length) ? (1 + Math.max(0, ...btDepths(cf))) : 0;
+    $('mBig').textContent = 'O(log n)';
+  } else {
+    $('mNodes').textContent = currentValues().length;
+    $('mH').textContent = (lastLayout && lastLayout.nodes.length) ? (Math.max.apply(null, lastLayout.nodes.map(d => d.depth)) + 1) : 0;
+    $('mBig').textContent = mode === 'bst' ? 'O(h)' : 'O(log n)';
+  }
+}
+
+// ============================================================ 虛擬碼 Pseudocode（依步驟訊息關鍵字高亮對應行）
+let currentOp = '', lastCodeLine = -1;
+function setOp(op) { currentOp = op; lastCodeLine = -1; resetQuiz(); }
+function insertOpFor(m) { return { max: 'heapInsert', min: 'heapInsert', minmax: 'minmaxInsert', deap: 'deapInsert', smmh: 'smmhInsert', bst: 'bstInsert', avl: 'avlInsert', rbt: 'rbtInsert' }[m]; }
+function deleteOpFor(m) { return { bst: 'bstDelete', avl: 'avlDelete', rbt: 'rbtDelete' }[m]; }
+const CODE = {
+  heapInsert: [
+    { t: 'insert(x):' }, { t: '  a[n] = x;  i = n;  n = n+1', kw: ['末端', '插入'] },
+    { t: '  while i>0 and a[i] 違反父子關係:', kw: ['比較'] },
+    { t: '    swap(a[i], a[parent(i)])', kw: ['交換'] },
+    { t: '    i = parent(i)', kw: ['上移', '繼續往上'] },
+    { t: '  // 定位完成', kw: ['定位', '頂端', '插入完成'] },
+  ],
+  heapExtract: [
+    { t: 'extract():' }, { t: '  top = a[0]', kw: ['取出頂端'] },
+    { t: '  a[0] = a[n-1];  n = n-1', kw: ['末端', '移到根'] },
+    { t: '  i = 0  // 開始下沉 (sift-down)', kw: ['下沉'] },
+    { t: '  while i 有子節點:', kw: ['檢查索引'] },
+    { t: '    if a[i] 已滿足: break', kw: ['定位'] },
+    { t: '    swap(a[i], 較優子);  i = 子', kw: ['交換', '繼續從索引'] },
+    { t: '  return top', kw: ['取出', '完成'] },
+  ],
+  buildHeap: [
+    { t: 'buildHeap(a):' }, { t: '  for i = n/2-1 downto 0:', kw: ['Build Heap', '處理索引'] },
+    { t: '    siftDown(a, i, n)', kw: ['檢查索引', '交換', '繼續從索引', '定位'] },
+    { t: '  // 完成', kw: ['Build Heap 完成', '完成 ✓'] },
+  ],
+  heapSort: [
+    { t: 'heapSort(a):' }, { t: '  buildHeap(a)', kw: ['建好堆積', '開始'] },
+    { t: '  for end = n-1 downto 1:', kw: ['換到索引', '定案'] },
+    { t: '    swap(a[0], a[end])', kw: ['換到索引'] },
+    { t: '    siftDown(a, 0, end)', kw: ['檢查索引', '交換', '繼續從索引'] },
+    { t: '  // 已排序', kw: ['排序完成'] },
+  ],
+  minmaxInsert: [
+    { t: 'minMaxInsert(x):' }, { t: '  a[n] = x  // 放到末端', kw: ['插入', '末端'] },
+    { t: '  與父比較,決定走 min 或 max 上浮', kw: ['與父', '層'] },
+    { t: '  沿祖父鏈上浮交換', kw: ['祖父', '上浮', '交換'] },
+    { t: '  // 定位完成', kw: ['定位', '完成'] },
+  ],
+  minmaxDelete: [
+    { t: 'deleteMin / deleteMax():' }, { t: '  取出 min(根) 或 max(第1層)', kw: ['最小值', '最大值', '取出'] },
+    { t: '  末端補到該位置', kw: ['末端', '移到'] },
+    { t: '  下沉:在子+孫中找極值,必要時與父修正', kw: ['下沉', '子/孫', '孫', '子', '修正', '交換'] },
+    { t: '  // 完成', kw: ['完成'] },
+  ],
+  deapInsert: [
+    { t: 'deapInsert(x):' }, { t: '  放到末端位置', kw: ['插入', '位置'] },
+    { t: '  比較對應的 min/max 夥伴', kw: ['夥伴'] },
+    { t: '  必要時換到另一個堆並上浮', kw: ['上浮', '交換'] },
+    { t: '  // 定位完成', kw: ['定位', '完成'] },
+  ],
+  smmhInsert: [
+    { t: 'smmhInsert(x):' }, { t: '  放到末端;維持「左 ≤ 右」', kw: ['插入', '兄弟', '左 ≤ 右'] },
+    { t: '  與祖父的左子/右子比較上浮', kw: ['祖父', '左子', '右子'] },
+    { t: '  swap 並繼續上浮', kw: ['交換', '上浮'] },
+    { t: '  // 定位完成', kw: ['定位', '完成'] },
+  ],
+  bstInsert: [
+    { t: 'insert(root, x):' }, { t: '  cur = root' },
+    { t: '  while cur: ', kw: [] },
+    { t: '    if x < cur: 往左', kw: ['較小', '往左'] },
+    { t: '    elif x > cur: 往右', kw: ['較大', '往右'] },
+    { t: '    else: 已存在', kw: ['已存在'] },
+    { t: '  掛上新節點', kw: ['空位', '插入', '成為根'] },
+  ],
+  bstSearch: [
+    { t: 'search(root, x):' }, { t: '  cur = root' },
+    { t: '  while cur:', kw: [] },
+    { t: '    if cur = x: 找到', kw: ['找到'] },
+    { t: '    cur = (x<cur)? 左 : 右', kw: ['比較', '往左', '往右'] },
+    { t: '  return 找不到', kw: ['找不到'] },
+  ],
+  bstDelete: [
+    { t: 'delete(root, x):' }, { t: '  找到要刪除的節點', kw: ['尋找', '找到'] },
+    { t: '  if 葉節點: 直接移除', kw: ['葉節點'] },
+    { t: '  elif 一子: 用子節點接上', kw: ['接上'] },
+    { t: '  else: 用中序後繼取代', kw: ['兩個子節點', '後繼', '最小值'] },
+    { t: '  // 完成', kw: ['刪除完成'] },
+  ],
+  avlInsert: [
+    { t: 'avlInsert(root, x):' }, { t: '  BST 插入新節點', kw: ['往左', '往右', '空位'] },
+    { t: '  由下往上更新高度與 BF', kw: ['高度', 'BF', '平衡因子'] },
+    { t: '  if 失衡: 旋轉 (LL/RR/LR/RL)', kw: ['失衡', '旋'] },
+    { t: '  // 平衡完成', kw: ['完成'] },
+  ],
+  avlDelete: [
+    { t: 'avlDelete(root, x):' }, { t: '  BST 刪除節點', kw: ['尋找', '往左', '往右', '找到', '後繼', '葉節點', '接上'] },
+    { t: '  回溯更新高度與 BF', kw: ['回溯', '高度', 'BF'] },
+    { t: '  if 失衡: 旋轉', kw: ['失衡', '旋'] },
+    { t: '  // 平衡完成', kw: ['完成'] },
+  ],
+  rbtInsert: [
+    { t: 'rbInsert(root, x):' }, { t: '  BST 插入「紅色」節點', kw: ['往左', '往右', '紅色', '為根'] },
+    { t: '  while parent.color = RED:', kw: [] },
+    { t: '    叔叔為紅 → 重新塗色,往上', kw: ['叔叔', '繼續'] },
+    { t: '    否則 → 旋轉 + 塗色', kw: ['情況', '旋', '塗黑'] },
+    { t: '  root.color = BLACK', kw: ['根節點塗黑', '根為黑'] },
+    { t: '  // 完成', kw: ['插入 ', '完成'] },
+  ],
+  rbtDelete: [
+    { t: 'rbDelete(root, x):' }, { t: '  BST 刪除(可能用後繼取代)', kw: ['尋找', '找到', '後繼'] },
+    { t: '  if 移走黑節點: 修正「雙黑」', kw: ['黑節點', '修正'] },
+    { t: '    情況 1~4: 兄弟塗色 + 旋轉', kw: ['兄弟', '情況', '雙黑', '旋', '塗'] },
+    { t: '  root.color = BLACK', kw: ['根'] },
+    { t: '  // 完成', kw: ['刪除', '完成'] },
+  ],
+  heapModify: [
+    { t: 'modifyKey(i, newVal):' }, { t: '  a[i] = newVal', kw: ['改成'] },
+    { t: '  if 更優: 上浮  else: 下沉', kw: ['上浮', '下沉', '更大', '更小'] },
+    { t: '    比較 / 交換', kw: ['比較', '交換', '檢查索引'] },
+    { t: '  // 完成', kw: ['完成'] },
+  ],
+  heapDeleteAt: [
+    { t: 'deleteAt(value):' }, { t: '  找到該值的位置', kw: ['刪除索引'] },
+    { t: '  a[i] = a[last];  n = n-1', kw: ['末端', '移到索引'] },
+    { t: '  調整:上浮或下沉', kw: ['上浮', '下沉', '比較', '交換', '檢查索引'] },
+    { t: '  // 完成', kw: ['完成'] },
+  ],
+  arrFind: [
+    { t: 'find(x):' }, { t: '  for i = 0 .. n-1:', kw: ['掃描', '找不到'] },
+    { t: '    if a[i] = x: return i', kw: ['命中', '找到'] },
+  ],
+  arrRebuildDelete: [
+    { t: 'deleteMin / deleteMax():' }, { t: '  取出 min / max', kw: ['取出', '最小值', '最大值'] },
+    { t: '  移除後將其餘元素重新插入(重建)', kw: ['重建', '移除'] },
+  ],
+  traverse_pre: [{ t: 'preorder(node):' }, { t: '  if node = null: return' }, { t: '  visit(node)', kw: ['走訪', '完成'] }, { t: '  preorder(node.left)' }, { t: '  preorder(node.right)' }],
+  traverse_in: [{ t: 'inorder(node):' }, { t: '  if node = null: return' }, { t: '  inorder(node.left)' }, { t: '  visit(node)', kw: ['走訪', '完成'] }, { t: '  inorder(node.right)' }],
+  traverse_post: [{ t: 'postorder(node):' }, { t: '  if node = null: return' }, { t: '  postorder(node.left)' }, { t: '  postorder(node.right)' }, { t: '  visit(node)', kw: ['走訪', '完成'] }],
+  traverse_level: [{ t: 'levelorder(root):' }, { t: '  queue = [root]' }, { t: '  while queue:' }, { t: '    node = queue.pop_front()' }, { t: '    visit(node)', kw: ['走訪', '完成'] }, { t: '    enqueue(node.left, node.right)' }],
+  btInsert: [
+    { t: 'bTreeInsert(x):  // 最小分支度 t,每節點 ≤ 2t-1 鍵' },
+    { t: '  從根往下找到該放的葉節點', kw: ['比較', '往右', '往子節點', '到葉節點'] },
+    { t: '  把 x 依序插入葉節點', kw: ['插入葉節點', '建立根節點'] },
+    { t: '  while 節點鍵數 > 2t-1:   // 溢位', kw: ['溢位'] },
+    { t: '    中鍵上移、節點一分為二', kw: ['中鍵', '上移', '根分裂'] },
+    { t: '  // 完成', kw: ['完成'] },
+  ],
+  btSearch: [
+    { t: 'bTreeSearch(x):' },
+    { t: '  在節點內線性/二分找 x 的位置', kw: ['往右'] },
+    { t: '  if 找到: return', kw: ['找到'] },
+    { t: '  if 葉節點: 不存在', kw: ['找不到', '葉節點'] },
+    { t: '  else 下降到對應子節點', kw: ['往子節點'] },
+  ],
+  btTraverse: [
+    { t: 'inorder(node):  // B-Tree 中序 = 排序' },
+    { t: '  for i in 0..keyCount:' },
+    { t: '    inorder(child[i]); visit(key[i])', kw: ['走訪'] },
+    { t: '  inorder(child[last])' },
+  ],
+  sortBubble: [
+    { t: 'bubbleSort(a):' }, { t: '  for i = 0 .. n-2:' },
+    { t: '    for j = 0 .. n-2-i:', kw: ['比較'] },
+    { t: '      if a[j] > a[j+1]: swap', kw: ['交換'] },
+    { t: '  // 已排序', kw: ['完成'] },
+  ],
+  sortSelection: [
+    { t: 'selectionSort(a):' }, { t: '  for i = 0 .. n-2:' },
+    { t: '    m = argmin a[i..n-1]', kw: ['找最小', '比較'] },
+    { t: '    swap(a[i], a[m])', kw: ['換到位置'] },
+    { t: '  // 已排序', kw: ['完成'] },
+  ],
+  sortInsertion: [
+    { t: 'insertionSort(a):' }, { t: '  for i = 1 .. n-1:', kw: ['取出'] },
+    { t: '    key = a[i];  j = i-1' },
+    { t: '    while j>=0 and a[j]>key: 後移', kw: ['後移'] },
+    { t: '    a[j+1] = key', kw: ['插入'] },
+  ],
+  sortShell: [
+    { t: 'shellSort(a):' }, { t: '  for gap = n/2; gap>0; gap/=2:', kw: ['gap'] },
+    { t: '    對每個 gap 子序列做插入排序', kw: ['後移'] },
+    { t: '    a[j] = tmp', kw: ['插入'] },
+    { t: '  // 已排序', kw: ['完成'] },
+  ],
+  sortMerge: [
+    { t: 'mergeSort(a, lo, hi):' }, { t: '  分成左右兩半,遞迴排序' },
+    { t: '  合併:逐一比較取較小', kw: ['合併', '比較'] },
+    { t: '  寫回原陣列', kw: ['寫回'] },
+    { t: '  // 已排序', kw: ['完成'] },
+  ],
+  sortQuick: [
+    { t: 'quickSort(a, lo, hi):' }, { t: '  pivot = a[hi]', kw: ['pivot ='] },
+    { t: '  分割:小於 pivot 移到左區', kw: ['比較', '交換到左區'] },
+    { t: '  把 pivot 放到正確位置', kw: ['正確位置', '定位'] },
+    { t: '  遞迴排序左、右子陣列' },
+  ],
+  sortHeap: [
+    { t: 'heapSort(a):' }, { t: '  buildMaxHeap(a)', kw: ['下沉'] },
+    { t: '  for end = n-1 downto 1:' },
+    { t: '    swap(a[0], a[end]); siftDown', kw: ['尾端', '交換', '比較'] },
+    { t: '  // 已排序', kw: ['完成'] },
+  ],
+  sortCounting: [
+    { t: 'countingSort(a):' }, { t: '  統計每個值出現次數', kw: ['統計'] },
+    { t: '  依大小依序寫回', kw: ['寫回'] },
+    { t: '  // 已排序', kw: ['完成'] },
+  ],
+  sortRadix: [
+    { t: 'radixSort(a):' }, { t: '  for 每個位數(個、十、百…):', kw: ['位數'] },
+    { t: '    依該位數分配到 10 個桶', kw: ['桶'] },
+    { t: '    依序收集桶內元素', kw: ['收集'] },
+    { t: '  // 已排序', kw: ['完成'] },
+  ],
+};
+function escapeHtml(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+function activeCodeLine(code, msg) { for (let i = 0; i < code.length; i++) { const kw = code[i].kw || []; for (const k of kw) if (msg.indexOf(k) >= 0) return i; } return -1; }
+function renderPseudocode() {
+  const box = $('pseudo'), code = CODE[currentOp];
+  if (!code) { box.innerHTML = '<span class="empty-note">選擇操作後顯示對應虛擬碼</span>'; return; }
+  let line = -1;
+  if (frames.length) { const fr = frames[Math.min(frameIdx, frames.length - 1)]; line = activeCodeLine(code, fr.msg || ''); if (line < 0) line = lastCodeLine; else lastCodeLine = line; }
+  box.innerHTML = code.map((l, i) => `<div class="cline${i === line ? ' active' : ''}">${escapeHtml(l.t)}</div>`).join('');
+}
+
+// ============================================================ 測驗 Quiz：預測下一步
+let quizMode = false, quizRight = 0, quizWrong = 0, quizAskedAt = -1, quizPending = false;
+function toggleQuiz() { quizMode = $('quizChk').checked; if (!quizMode) { $('quizBox').style.display = 'none'; quizPending = false; } updateQuizScore(); }
+function updateQuizScore() { $('quizScore').textContent = `答對 ${quizRight} ・ 答錯 ${quizWrong}`; }
+function resetQuiz() { quizAskedAt = -1; quizPending = false; const b = $('quizBox'); if (b) b.style.display = 'none'; }
+function quizGate() {
+  if (!quizMode || !frames.length) return false;
+  const i = frameIdx;
+  if (i + 1 >= frames.length || quizAskedAt === i || !frameIsCmp(frames[i])) return false;
+  showQuiz(i); return true;
+}
+function showQuiz(i) {
+  quizPending = true; stopPlay();
+  const rotate = (mode === 'avl' || mode === 'rbt');
+  $('quizBox').style.display = '';
+  $('quizQ').textContent = `目前停在「比較/檢查」這一步,猜猜下一步會${rotate ? '旋轉' : '交換'}嗎?`;
+  $('quizFb').textContent = '';
+  $('quizBtns').innerHTML = `<button class="primary" onclick="answerQuiz(true)">會${rotate ? '旋轉' : '交換'}</button><button onclick="answerQuiz(false)">不會</button>`;
+}
+function answerQuiz(saidYes) {
+  const i = frameIdx; if (i + 1 >= frames.length) return;
+  const correct = frameIsSwap(frames[i + 1]), ok = (saidYes === correct);
+  if (ok) quizRight++; else quizWrong++; updateQuizScore();
+  $('quizFb').textContent = ok ? '✓ 答對了!' : `✗ 正解:${correct ? '會' : '不會'}`;
+  $('quizFb').style.color = ok ? 'var(--node-done)' : 'var(--node-swap)';
+  quizAskedAt = i; quizPending = false;
+  setTimeout(() => { const b = $('quizBox'); if (b) b.style.display = 'none'; if (frameIdx < frames.length - 1) showFrame(frameIdx + 1, true); }, 800);
+}
+function drawSidePanel(fr) { if (fr.kind === 'btree') drawBTPanel(fr); else if (fr.kind === 'sort') drawSortPanel(fr); else if (fr.kind === 'tree') drawOrderPanel(fr); else drawArrayPanel(fr); }
+function cancelAnim() { if (animRAF) { cancelAnimationFrame(animRAF); animRAF = null; } if (pulseRAF) { cancelAnimationFrame(pulseRAF); pulseRAF = null; } }
+function animDur() { const d = 1520 - parseInt($('speed').value); return Math.max(140, Math.min(380, d * 0.7)); }
+
+// 對「比較中/交換中」節點持續播放脈動光環,直到下次重繪
+function startPulse(layout) {
+  if (pulseRAF) { cancelAnimationFrame(pulseRAF); pulseRAF = null; }
+  if (typeof requestAnimationFrame === 'undefined' || !layout.nodes.some(d => d.pulse)) return;
+  const t0 = performance.now();
+  function tick(now) {
+    const ph = 0.5 + 0.5 * Math.sin((now - t0) / 280);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawScene(layout, null, ph);
+    drawPathOverlay();
+    pulseRAF = requestAnimationFrame(tick);
+  }
+  pulseRAF = requestAnimationFrame(tick);
+}
+
+// 靜態繪製(無補間)
+function drawStatic(layout, fr) {
+  cancelAnim();
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (fr.kind === 'sort' || fr.kind === 'btree') { renderPositions = {}; renderParentMap = {}; if (fr.kind === 'sort') { drawBars(fr); lastSortArr = fr.arr.slice(); } else drawBTree(fr); lastLayout = { nodes: [] }; drawSidePanel(fr); applyStatus(fr); return; }
+  if (!layout.nodes.length) drawEmpty(); else drawScene(layout);
+  setRefs(layout); drawPathOverlay();
+  drawSidePanel(fr); lastLayout = layout; applyStatus(fr);
+  startPulse(layout);
+}
+function render() { const fr = currentFrame(); if (fr.kind === 'sort' || fr.kind === 'btree') drawStatic(null, fr); else drawStatic(computeLayout(fr), fr); }
+
+// 切換到第 idx 個 frame;animate 時把舊→新位置做補間(旋轉/交換會平滑移動)
+function showFrame(idx, animate) {
+  frameIdx = Math.max(0, Math.min(idx, frames.length - 1));
+  const fr = frames[frameIdx];
+  if (fr.kind === 'btree') { drawStatic(null, fr); return; }
+  if (fr.kind === 'sort') {
+    if (animate && lastSortArr && lastSortArr.length === fr.arr.length) {
+      const prev = lastSortArr.slice(); lastSortArr = fr.arr.slice(); animateSort(prev, fr);
+    } else drawStatic(null, fr);
+    return;
+  }
+  const nl = computeLayout(fr);
+  const canAnim = animate && lastLayout && nl.nodes.length && lastLayout.nodes.some(d => nl.byKey[d.key]);
+  if (!canAnim) { drawStatic(nl, fr); return; }
+  cancelAnim();
+  const ol = lastLayout, oldByKey = ol.byKey, parentOf = {};
+  nl.edges.forEach(([a, b]) => parentOf[b] = a);
+  drawSidePanel(fr); setRefs(nl); lastLayout = nl; applyStatus(fr);   // 文字與命中參照先到位
+  const start = performance.now(), dur = animDur();
+  function tick(now) {
+    const t = Math.min(1, (now - start) / dur), e = t < .5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ol.nodes.forEach(od => { if (!nl.byKey[od.key]) drawNode(od, od.x, od.y, od.r * (1 - 0.5 * e), 1 - e); });  // 淡出(被刪)
+    drawScene(nl, d => {
+      const o = oldByKey[d.key];
+      if (o) return { x: o.x + (d.x - o.x) * e, y: o.y + (d.y - o.y) * e, r: d.r, alpha: 1 };
+      const po = oldByKey[parentOf[d.key]], sx = po ? po.x : d.x, sy = po ? po.y : d.y;       // 新節點從父節點冒出
+      return { x: sx + (d.x - sx) * e, y: sy + (d.y - sy) * e, r: d.r * (0.4 + 0.6 * e), alpha: e };
+    });
+    if (t < 1) animRAF = requestAnimationFrame(tick);
+    else { animRAF = null; drawStatic(nl, fr); }
+  }
+  animRAF = requestAnimationFrame(tick);
+}
+
+function drawArrayPanel(fr) {
+  const a = fr.arr, ib = fr.idxBase || 0, view = $('arrView'), start = ib === 1 ? 1 : 0;
+  const has = []; for (let i = start; i < a.length; i++) has.push(i);
+  if (!has.length || a.length <= start) { view.innerHTML = '<span class="empty-note">空</span>'; return; }
+  view.innerHTML = '';
+  has.forEach(i => {
+    const cell = document.createElement('div'); cell.className = 'cell';
+    if (a[i] == null) { cell.classList.add('empty'); }
+    else if (fr.swap && (fr.swap[0] === i || fr.swap[1] === i)) cell.classList.add('sw');
+    else if (fr.highlight.includes(i)) cell.classList.add('hl');
+    cell.innerHTML = `<span class="idx">${i}</span>${a[i] == null ? '∅' : a[i]}`; view.appendChild(cell);
+  });
+}
+function drawOrderPanel(fr) {
+  const view = $('arrView'); if (!fr.nodes.length) { view.innerHTML = '<span class="empty-note">空</span>'; return; }
+  view.innerHTML = '';
+  fr.order.forEach((v, i) => { const c = document.createElement('div'); c.className = 'cell'; c.innerHTML = `<span class="idx">${i}</span>${v}`; view.appendChild(c); });
+}
+// ---- B-Tree 繪製 ----
+function btDepths(fr) {
+  const map = {}; fr.nodes.forEach(n => map[n.id] = n); const out = [];
+  (function go(id, d) { const n = map[id]; if (!n) return; out.push(d); n.childIds.forEach(c => go(c, d + 1)); })(fr.rootId, 0);
+  return out.length ? out : [0];
+}
+function layoutBT(fr) {
+  const map = {}; fr.nodes.forEach(n => map[n.id] = n);
+  const CELL = 30, GAP = 26; let cursor = 0; const pos = {}; let maxDepth = 0;
+  (function place(id, depth) {
+    const n = map[id]; if (!n) return; maxDepth = Math.max(maxDepth, depth);
+    const w = Math.max(1, n.keys.length) * CELL;
+    if (n.leaf || !n.childIds.length) { pos[id] = { cx: cursor + w / 2, depth, keys: n.keys.length }; cursor += w + GAP; }
+    else { n.childIds.forEach(c => place(c, depth + 1)); const a = pos[n.childIds[0]].cx, b = pos[n.childIds[n.childIds.length - 1]].cx; pos[id] = { cx: (a + b) / 2, depth, keys: n.keys.length }; }
+  })(fr.rootId, 0);
+  return { map, pos, maxDepth, totalW: cursor - GAP, CELL };
+}
+function drawBTree(fr) {
+  if (!fr.nodes.length || fr.rootId == null) { drawEmpty(); return; }
+  const L = layoutBT(fr);
+  const topPad = 52, bottomPad = 84, sidePad = 30;
+  const levelH = Math.min(96, (canvas.height - topPad - bottomPad) / Math.max(1, L.maxDepth));
+  const availW = canvas.width - 2 * sidePad;
+  const scale = Math.min(1, availW / Math.max(1, L.totalW));
+  const offX = sidePad + (availW - L.totalW * scale) / 2;
+  const CELL = L.CELL * scale, KEYH = Math.max(20, 30 * scale);
+  const px = id => { const p = L.pos[id]; return { cx: offX + p.cx * scale, y: topPad + p.depth * levelH, w: p.keys * CELL }; };
+  ctx.strokeStyle = cssVar('--line'); ctx.lineWidth = 2;
+  fr.nodes.forEach(n => {
+    if (n.leaf || !n.childIds.length) return; const pp = px(n.id), left = pp.cx - pp.w / 2;
+    n.childIds.forEach((cid, ci) => { const cp = px(cid); ctx.beginPath(); ctx.moveTo(left + ci * CELL, pp.y + KEYH / 2); ctx.lineTo(cp.cx, cp.y - KEYH / 2); ctx.stroke(); });
+  });
+  fr.nodes.forEach(n => {
+    const pp = px(n.id), st = fr.nodeState[n.id] || 0, left = pp.cx - pp.w / 2, y = pp.y - KEYH / 2;
+    const border = st === 1 ? '--node-cmp' : st === 3 ? '--node-swap' : st === 4 ? '--node-new' : st === 5 ? '--node-done' : '--line';
+    for (let i = 0; i < n.keys.length; i++) {
+      const cx = left + i * CELL, hl = (fr.hlNode === n.id && fr.hlKey === i);
+      ctx.fillStyle = hl ? cssVar('--node-cmp') : cssVar('--panel2'); ctx.fillRect(cx, y, CELL, KEYH);
+      ctx.strokeStyle = cssVar('--line'); ctx.lineWidth = 1; ctx.strokeRect(cx, y, CELL, KEYH);
+      ctx.fillStyle = hl ? '#1a1a1a' : cssVar('--text'); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = `${Math.max(10, KEYH * 0.42)}px sans-serif`;
+      ctx.fillText(String(n.keys[i]), cx + CELL / 2, y + KEYH / 2 + 1);
+    }
+    ctx.strokeStyle = cssVar(border); ctx.lineWidth = st === 0 ? 1.5 : 3; ctx.strokeRect(left, y, n.keys.length * CELL, KEYH);
+  });
+}
+function drawBTPanel(fr) {
+  const view = $('arrView'); const ks = []; const map = {}; fr.nodes.forEach(n => map[n.id] = n);
+  (function io(id) { const n = map[id]; if (!n) return; for (let i = 0; i < n.keys.length; i++) { if (!n.leaf) io(n.childIds[i]); ks.push(n.keys[i]); } if (!n.leaf) io(n.childIds[n.keys.length]); })(fr.rootId);
+  if (!ks.length) { view.innerHTML = '<span class="empty-note">空</span>'; return; }
+  view.innerHTML = ''; ks.forEach((v, i) => { const c = document.createElement('div'); c.className = 'cell'; c.innerHTML = `<span class="idx">${i}</span>${v}`; view.appendChild(c); });
+}
+function drawBars(fr) {
+  const a = fr.arr, n = a.length;
+  if (!n) { drawEmpty(); return; }
+  const mx = Math.max(...a, 1);
+  const topPad = 44, bottomPad = 74, sidePad = 24;
+  const W = canvas.width - 2 * sidePad, H = canvas.height - topPad - bottomPad;
+  const bw = W / n, gap = Math.min(4, bw * 0.18);
+  const sortedSet = new Set(fr.sorted || []);
+  if (fr.range) { ctx.fillStyle = 'rgba(79,156,255,.07)'; ctx.fillRect(sidePad + fr.range[0] * bw, topPad, (fr.range[1] - fr.range[0] + 1) * bw, H); }
+  for (let i = 0; i < n; i++) {
+    const h = Math.max(3, (a[i] / mx) * H), x = sidePad + i * bw, y = topPad + H - h;
+    let col = '--node';
+    if (fr.swap && fr.swap.indexOf(i) >= 0) col = '--node-swap';
+    else if (fr.write && fr.write.indexOf(i) >= 0) col = '--node-new';
+    else if (fr.cmp && fr.cmp.indexOf(i) >= 0) col = '--node-cmp';
+    else if (fr.pivot === i) col = '--node-new';
+    else if (sortedSet.has(i)) col = '--node-done';
+    ctx.fillStyle = cssVar(col);
+    ctx.fillRect(x + gap / 2, y, Math.max(1, bw - gap), h);
+    if (n <= 32) { ctx.fillStyle = cssVar('--muted'); ctx.font = `${Math.min(11, Math.max(7, bw * 0.5))}px sans-serif`; ctx.textAlign = 'center'; ctx.fillText(String(a[i]), x + bw / 2, topPad + H + 14); }
+  }
+}
+// 交換 → 兩根長條左右滑過去;移動/寫入 → 高度平滑變形
+function animateSort(prev, fr) {
+  cancelAnim();
+  const diff = []; for (let i = 0; i < fr.arr.length; i++) if (prev[i] !== fr.arr[i]) diff.push(i);
+  let swapPair = null;
+  if (diff.length === 2) { const i = diff[0], j = diff[1]; if (prev[i] === fr.arr[j] && prev[j] === fr.arr[i]) swapPair = [i, j]; }
+  if (!swapPair && diff.length === 0) { drawStatic(null, fr); return; }
+  drawSidePanel(fr); applyStatus(fr);                 // 文字/統計即時更新
+  const start = performance.now(), dur = animDur();
+  function tick(now) {
+    const t = Math.min(1, (now - start) / dur), e = t < .5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawBarsInterp(fr, prev, e, swapPair);
+    if (t < 1) animRAF = requestAnimationFrame(tick);
+    else { animRAF = null; drawStatic(null, fr); }
+  }
+  animRAF = requestAnimationFrame(tick);
+}
+function drawBarsInterp(fr, prev, e, swapPair) {
+  const a = fr.arr, n = a.length; if (!n) return;
+  let mx = 1; for (let i = 0; i < n; i++) mx = Math.max(mx, a[i], prev[i]);
+  const topPad = 44, bottomPad = 74, sidePad = 24, W = canvas.width - 2 * sidePad, H = canvas.height - topPad - bottomPad;
+  const bw = W / n, gap = Math.min(4, bw * 0.18), sortedSet = new Set(fr.sorted || []);
+  if (fr.range) { ctx.fillStyle = 'rgba(79,156,255,.07)'; ctx.fillRect(sidePad + fr.range[0] * bw, topPad, (fr.range[1] - fr.range[0] + 1) * bw, H); }
+  const xOf = i => sidePad + i * bw, hOf = v => Math.max(3, (v / mx) * H);
+  const bar = (x, v, col, yoff) => { const h = hOf(v); ctx.fillStyle = cssVar(col); ctx.fillRect(x + gap / 2, topPad + H - h - (yoff || 0), Math.max(1, bw - gap), h); };
+  const colOf = k => sortedSet.has(k) ? '--node-done' : (fr.cmp && fr.cmp.indexOf(k) >= 0) ? '--node-cmp' : (k === fr.pivot) ? '--node-new' : '--node';
+  if (swapPair) {
+    const i = swapPair[0], j = swapPair[1];
+    for (let k = 0; k < n; k++) { if (k === i || k === j) continue; bar(xOf(k), a[k], colOf(k), 0); }
+    const lift = H * 0.2 * Math.sin(Math.PI * e);
+    bar(xOf(i) + (xOf(j) - xOf(i)) * e, prev[i], '--node-swap', lift);   // 上面那根滑過去
+    bar(xOf(j) + (xOf(i) - xOf(j)) * e, prev[j], '--node-swap', 0);
+  } else {
+    for (let k = 0; k < n; k++) { const v = prev[k] + (a[k] - prev[k]) * e; const col = (fr.write && fr.write.indexOf(k) >= 0) ? '--node-new' : colOf(k); bar(xOf(k), v, col, 0); }
+  }
+}
+function drawSortPanel(fr) {
+  const a = fr.arr, view = $('arrView'); $('arrTitle').textContent = '陣列 (Array)';
+  if (!a.length) { view.innerHTML = '<span class="empty-note">空</span>'; return; }
+  view.innerHTML = '';
+  a.forEach((v, i) => {
+    const cell = document.createElement('div'); cell.className = 'cell';
+    if ((fr.swap && fr.swap.indexOf(i) >= 0) || (fr.write && fr.write.indexOf(i) >= 0)) cell.classList.add('sw');
+    else if (fr.cmp && fr.cmp.indexOf(i) >= 0) cell.classList.add('hl');
+    cell.innerHTML = `<span class="idx">${i}</span>${v}`; view.appendChild(cell);
+  });
+}
+
+// ---- 點擊路徑高亮 ----
+function drawPathOverlay() {
+  if (pathTargetKey == null || !(pathTargetKey in renderPositions)) return;
+  const path = []; let k = pathTargetKey; const seen = new Set();
+  while (k != null && (k in renderPositions) && !seen.has(k)) { seen.add(k); path.push(k); const pk = renderParentMap[k]; if (pk == null || pk === k || !(pk in renderPositions)) break; k = pk; }
+  ctx.strokeStyle = cssVar('--accent'); ctx.lineWidth = 4;
+  for (let t = 0; t + 1 < path.length; t++) line(renderPositions[path[t]], renderPositions[path[t + 1]]);
+  path.forEach(key => { const p = renderPositions[key]; ctx.beginPath(); ctx.arc(p.x, p.y, p.r + 4, 0, Math.PI * 2); ctx.strokeStyle = cssVar('--accent'); ctx.lineWidth = 3; ctx.stroke(); });
+}
+canvas.addEventListener('click', e => {
+  const rect = canvas.getBoundingClientRect(), mx = e.clientX - rect.left, my = e.clientY - rect.top;
+  let hit = null;
+  for (const k in renderPositions) { const p = renderPositions[k]; if ((mx - p.x) ** 2 + (my - p.y) ** 2 <= (p.r + 3) ** 2) { hit = k; break; } }
+  if (hit != null) {
+    pathTargetKey = hit; render();
+    const path = []; let k = hit; const seen = new Set();
+    while (k != null && (k in renderPositions) && !seen.has(k)) { seen.add(k); path.push(k); const pk = renderParentMap[k]; if (pk == null || pk === k || !(pk in renderPositions)) break; k = pk; }
+    setStatus('路徑', `從根到該節點的路徑深度 = ${path.length - 1}(經過 ${path.length} 個節點)。再點空白處可取消。`);
+  } else if (pathTargetKey != null) { pathTargetKey = null; render(); }
+});
+
+// ============================================================ 狀態列
+function setStatus(no, msg) { $('stepNo').textContent = no; $('msg').textContent = msg; }
+let flashTimer = null;
+function flashMsg(m) { setStatus('提示', m); clearTimeout(flashTimer); flashTimer = setTimeout(render, 1800); }
+
+// ============================================================ 初始
+buildExampleSelect();
+updateControls();
+updateSpeedMs();
+resize();
+setStatus('就緒', '選擇資料結構,套用範例或輸入數值。點任一節點可高亮從根到它的路徑。');
+</script>
+</body>
+</html>
